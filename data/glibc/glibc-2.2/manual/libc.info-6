@@ -1,0 +1,1208 @@
+This is Info file libc.info, produced by Makeinfo version 1.68 from the
+input file libc.texinfo.
+
+INFO-DIR-SECTION GNU libraries
+START-INFO-DIR-ENTRY
+* Libc: (libc).                 C library.
+END-INFO-DIR-ENTRY
+
+   This file documents the GNU C library.
+
+   This is Edition 0.09 DRAFT, last updated 28 Aug 1999, of `The GNU C
+Library Reference Manual', for Version 2.2 Beta.
+
+   Copyright (C) 1993, '94, '95, '96, '97, '98, '99 Free Software
+Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "GNU Library General Public License" is
+included exactly as in the original, and provided that the entire
+resulting derived work is distributed under the terms of a permission
+notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the text of the translation of the section
+entitled "GNU Library General Public License" must be approved for
+accuracy by the Foundation.
+
+
+File: libc.info,  Node: String/Array Conventions,  Next: String Length,  Prev: Representation of Strings,  Up: String and Array Utilities
+
+String and Array Conventions
+============================
+
+   This chapter describes both functions that work on arbitrary arrays
+or blocks of memory, and functions that are specific to null-terminated
+arrays of characters.
+
+   Functions that operate on arbitrary blocks of memory have names
+beginning with `mem' (such as `memcpy') and invariably take an argument
+which specifies the size (in bytes) of the block of memory to operate
+on.  The array arguments and return values for these functions have
+type `void *', and as a matter of style, the elements of these arrays
+are referred to as "bytes".  You can pass any kind of pointer to these
+functions, and the `sizeof' operator is useful in computing the value
+for the size argument.
+
+   In contrast, functions that operate specifically on strings have
+names beginning with `str' (such as `strcpy') and look for a null
+character to terminate the string instead of requiring an explicit size
+argument to be passed.  (Some of these functions accept a specified
+maximum length, but they also check for premature termination with a
+null character.)  The array arguments and return values for these
+functions have type `char *', and the array elements are referred to as
+"characters".
+
+   In many cases, there are both `mem' and `str' versions of a
+function.  The one that is more appropriate to use depends on the exact
+situation.  When your program is manipulating arbitrary arrays or
+blocks of storage, then you should always use the `mem' functions.  On
+the other hand, when you are manipulating null-terminated strings it is
+usually more convenient to use the `str' functions, unless you already
+know the length of the string in advance.
+
+
+File: libc.info,  Node: String Length,  Next: Copying and Concatenation,  Prev: String/Array Conventions,  Up: String and Array Utilities
+
+String Length
+=============
+
+   You can get the length of a string using the `strlen' function.
+This function is declared in the header file `string.h'.
+
+ - Function: size_t strlen (const char *S)
+     The `strlen' function returns the length of the null-terminated
+     string S.  (In other words, it returns the offset of the
+     terminating null character within the array.)
+
+     For example,
+          strlen ("hello, world")
+              => 12
+
+     When applied to a character array, the `strlen' function returns
+     the length of the string stored there, not its allocated size.
+     You can get the allocated size of the character array that holds a
+     string using the `sizeof' operator:
+
+          char string[32] = "hello, world";
+          sizeof (string)
+              => 32
+          strlen (string)
+              => 12
+
+     But beware, this will not work unless STRING is the character
+     array itself, not a pointer to it.  For example:
+
+          char string[32] = "hello, world";
+          char *ptr = string;
+          sizeof (string)
+              => 32
+          sizeof (ptr)
+              => 4  /* (on a machine with 4 byte pointers) */
+
+     This is an easy mistake to make when you are working with
+     functions that take string arguments; those arguments are always
+     pointers, not arrays.
+
+
+ - Function: size_t strnlen (const char *S, size_t MAXLEN)
+     The `strnlen' function returns the length of the null-terminated
+     string S is this length is smaller than MAXLEN.  Otherwise it
+     returns MAXLEN.  Therefore this function is equivalent to `(strlen
+     (S) < n ? strlen (S) : MAXLEN)' but it is more efficient.
+
+          char string[32] = "hello, world";
+          strnlen (string, 32)
+              => 12
+          strnlen (string, 5)
+              => 5
+
+     This function is a GNU extension.
+
+
+File: libc.info,  Node: Copying and Concatenation,  Next: String/Array Comparison,  Prev: String Length,  Up: String and Array Utilities
+
+Copying and Concatenation
+=========================
+
+   You can use the functions described in this section to copy the
+contents of strings and arrays, or to append the contents of one string
+to another.  These functions are declared in the header file `string.h'.
+
+   A helpful way to remember the ordering of the arguments to the
+functions in this section is that it corresponds to an assignment
+expression, with the destination array specified to the left of the
+source array.  All of these functions return the address of the
+destination array.
+
+   Most of these functions do not work properly if the source and
+destination arrays overlap.  For example, if the beginning of the
+destination array overlaps the end of the source array, the original
+contents of that part of the source array may get overwritten before it
+is copied.  Even worse, in the case of the string functions, the null
+character marking the end of the string may be lost, and the copy
+function might get stuck in a loop trashing all the memory allocated to
+your program.
+
+   All functions that have problems copying between overlapping arrays
+are explicitly identified in this manual.  In addition to functions in
+this section, there are a few others like `sprintf' (*note Formatted
+Output Functions::.) and `scanf' (*note Formatted Input Functions::.).
+
+ - Function: void * memcpy (void *TO, const void *FROM, size_t SIZE)
+     The `memcpy' function copies SIZE bytes from the object beginning
+     at FROM into the object beginning at TO.  The behavior of this
+     function is undefined if the two arrays TO and FROM overlap; use
+     `memmove' instead if overlapping is possible.
+
+     The value returned by `memcpy' is the value of TO.
+
+     Here is an example of how you might use `memcpy' to copy the
+     contents of an array:
+
+          struct foo *oldarray, *newarray;
+          int arraysize;
+          ...
+          memcpy (new, old, arraysize * sizeof (struct foo));
+
+ - Function: void * mempcpy (void *TO, const void *FROM, size_t SIZE)
+     The `mempcpy' function is nearly identical to the `memcpy'
+     function.  It copies SIZE bytes from the object beginning at
+     `from' into the object pointed to by TO.  But instead of returning
+     the value of TO it returns a pointer to the byte following the
+     last written byte in the object beginning at TO.  I.e., the value
+     is `((void *) ((char *) TO + SIZE))'.
+
+     This function is useful in situations where a number of objects
+     shall be copied to consecutive memory positions.
+
+          void *
+          combine (void *o1, size_t s1, void *o2, size_t s2)
+          {
+            void *result = malloc (s1 + s2);
+            if (result != NULL)
+              mempcpy (mempcpy (result, o1, s1), o2, s2);
+            return result;
+          }
+
+     This function is a GNU extension.
+
+ - Function: void * memmove (void *TO, const void *FROM, size_t SIZE)
+     `memmove' copies the SIZE bytes at FROM into the SIZE bytes at TO,
+     even if those two blocks of space overlap.  In the case of
+     overlap, `memmove' is careful to copy the original values of the
+     bytes in the block at FROM, including those bytes which also
+     belong to the block at TO.
+
+ - Function: void * memccpy (void *TO, const void *FROM, int C, size_t
+          SIZE)
+     This function copies no more than SIZE bytes from FROM to TO,
+     stopping if a byte matching C is found.  The return value is a
+     pointer into TO one byte past where C was copied, or a null
+     pointer if no byte matching C appeared in the first SIZE bytes of
+     FROM.
+
+ - Function: void * memset (void *BLOCK, int C, size_t SIZE)
+     This function copies the value of C (converted to an `unsigned
+     char') into each of the first SIZE bytes of the object beginning
+     at BLOCK.  It returns the value of BLOCK.
+
+ - Function: char * strcpy (char *TO, const char *FROM)
+     This copies characters from the string FROM (up to and including
+     the terminating null character) into the string TO.  Like
+     `memcpy', this function has undefined results if the strings
+     overlap.  The return value is the value of TO.
+
+ - Function: char * strncpy (char *TO, const char *FROM, size_t SIZE)
+     This function is similar to `strcpy' but always copies exactly
+     SIZE characters into TO.
+
+     If the length of FROM is more than SIZE, then `strncpy' copies
+     just the first SIZE characters.  Note that in this case there is
+     no null terminator written into TO.
+
+     If the length of FROM is less than SIZE, then `strncpy' copies all
+     of FROM, followed by enough null characters to add up to SIZE
+     characters in all.  This behavior is rarely useful, but it is
+     specified by the ISO C standard.
+
+     The behavior of `strncpy' is undefined if the strings overlap.
+
+     Using `strncpy' as opposed to `strcpy' is a way to avoid bugs
+     relating to writing past the end of the allocated space for TO.
+     However, it can also make your program much slower in one common
+     case: copying a string which is probably small into a potentially
+     large buffer.  In this case, SIZE may be large, and when it is,
+     `strncpy' will waste a considerable amount of time copying null
+     characters.
+
+ - Function: char * strdup (const char *S)
+     This function copies the null-terminated string S into a newly
+     allocated string.  The string is allocated using `malloc'; see
+     *Note Unconstrained Allocation::.  If `malloc' cannot allocate
+     space for the new string, `strdup' returns a null pointer.
+     Otherwise it returns a pointer to the new string.
+
+ - Function: char * strndup (const char *S, size_t SIZE)
+     This function is similar to `strdup' but always copies at most
+     SIZE characters into the newly allocated string.
+
+     If the length of S is more than SIZE, then `strndup' copies just
+     the first SIZE characters and adds a closing null terminator.
+     Otherwise all characters are copied and the string is terminated.
+
+     This function is different to `strncpy' in that it always
+     terminates the destination string.
+
+     `strndup' is a GNU extension.
+
+ - Function: char * stpcpy (char *TO, const char *FROM)
+     This function is like `strcpy', except that it returns a pointer to
+     the end of the string TO (that is, the address of the terminating
+     null character) rather than the beginning.
+
+     For example, this program uses `stpcpy' to concatenate `foo' and
+     `bar' to produce `foobar', which it then prints.
+
+          #include <string.h>
+          #include <stdio.h>
+          
+          int
+          main (void)
+          {
+            char buffer[10];
+            char *to = buffer;
+            to = stpcpy (to, "foo");
+            to = stpcpy (to, "bar");
+            puts (buffer);
+            return 0;
+          }
+
+     This function is not part of the ISO or POSIX standards, and is not
+     customary on Unix systems, but we did not invent it either.
+     Perhaps it comes from MS-DOG.
+
+     Its behavior is undefined if the strings overlap.
+
+ - Function: char * stpncpy (char *TO, const char *FROM, size_t SIZE)
+     This function is similar to `stpcpy' but copies always exactly
+     SIZE characters into TO.
+
+     If the length of FROM is more then SIZE, then `stpncpy' copies
+     just the first SIZE characters and returns a pointer to the
+     character directly following the one which was copied last.  Note
+     that in this case there is no null terminator written into TO.
+
+     If the length of FROM is less than SIZE, then `stpncpy' copies all
+     of FROM, followed by enough null characters to add up to SIZE
+     characters in all.  This behaviour is rarely useful, but it is
+     implemented to be useful in contexts where this behaviour of the
+     `strncpy' is used.  `stpncpy' returns a pointer to the *first*
+     written null character.
+
+     This function is not part of ISO or POSIX but was found useful
+     while developing the GNU C Library itself.
+
+     Its behaviour is undefined if the strings overlap.
+
+ - Macro: char * strdupa (const char *S)
+     This macro is similar to `strdup' but allocates the new string
+     using `alloca' instead of `malloc' (*note Variable Size
+     Automatic::.).  This means of course the returned string has the
+     same limitations as any block of memory allocated using `alloca'.
+
+     For obvious reasons `strdupa' is implemented only as a macro; you
+     cannot get the address of this function.  Despite this limitation
+     it is a useful function.  The following code shows a situation
+     where using `malloc' would be a lot more expensive.
+
+          #include <paths.h>
+          #include <string.h>
+          #include <stdio.h>
+          
+          const char path[] = _PATH_STDPATH;
+          
+          int
+          main (void)
+          {
+            char *wr_path = strdupa (path);
+            char *cp = strtok (wr_path, ":");
+          
+            while (cp != NULL)
+              {
+                puts (cp);
+                cp = strtok (NULL, ":");
+              }
+            return 0;
+          }
+
+     Please note that calling `strtok' using PATH directly is invalid.
+
+     This function is only available if GNU CC is used.
+
+ - Macro: char * strndupa (const char *S, size_t SIZE)
+     This function is similar to `strndup' but like `strdupa' it
+     allocates the new string using `alloca' *note Variable Size
+     Automatic::..  The same advantages and limitations of `strdupa'
+     are valid for `strndupa', too.
+
+     This function is implemented only as a macro, just like `strdupa'.
+
+     `strndupa' is only available if GNU CC is used.
+
+ - Function: char * strcat (char *TO, const char *FROM)
+     The `strcat' function is similar to `strcpy', except that the
+     characters from FROM are concatenated or appended to the end of
+     TO, instead of overwriting it.  That is, the first character from
+     FROM overwrites the null character marking the end of TO.
+
+     An equivalent definition for `strcat' would be:
+
+          char *
+          strcat (char *to, const char *from)
+          {
+            strcpy (to + strlen (to), from);
+            return to;
+          }
+
+     This function has undefined results if the strings overlap.
+
+   Programmers using the `strcat' function (or the following `strncat'
+function for that matter) can easily be recognized as lazy.  In almost
+all situations the lengths of the participating strings are known.  Or
+at least, one could know them if one keeps track of the results of the
+various function calls.  But then it is very inefficient to use
+`strcat'.  A lot of time is wasted finding the end of the destination
+string so that the actual copying can start.  This is a common example:
+
+     /* This function concatenates arbitrarily many strings.  The last
+        parameter must be `NULL'.  */
+     char *
+     concat (const char *str, ...)
+     {
+       va_list ap, ap2;
+       size_t total = 1;
+       const char *s;
+       char *result;
+     
+       va_start (ap, str);
+       /* Actually `va_copy', but this is the name more gcc versions
+          understand.  */
+       __va_copy (ap2, ap);
+     
+       /* Determine how much space we need.  */
+       for (s = str; s != NULL; s = va_arg (ap, const char *))
+         total += strlen (s);
+     
+       va_end (ap);
+     
+       result = (char *) malloc (total);
+       if (result != NULL)
+         {
+           result[0] = '\0';
+     
+           /* Copy the strings.  */
+           for (s = str; s != NULL; s = va_arg (ap2, const char *))
+             strcat (result, s);
+         }
+     
+       va_end (ap2);
+     
+       return result;
+     }
+
+   This looks quite simple, especially the second loop where the strings
+are actually copied.  But these innocent lines hide a major performance
+penalty.  Just imagine that ten strings of 100 bytes each have to be
+concatenated.  For the second string we search the already stored 100
+bytes for the end of the string so that we can append the next string.
+For all strings in total the comparisons necessary to find the end of
+the intermediate results sums up to 5500!  If we combine the copying
+with the search for the allocation we can write this function more
+efficient:
+
+     char *
+     concat (const char *str, ...)
+     {
+       va_list ap;
+       size_t allocated = 100;
+       char *result = (char *) malloc (allocated);
+       char *wp;
+     
+       if (allocated != NULL)
+         {
+           char *newp;
+     
+           va_start (ap, atr);
+     
+           wp = result;
+           for (s = str; s != NULL; s = va_arg (ap, const char *))
+             {
+               size_t len = strlen (s);
+     
+               /* Resize the allocated memory if necessary.  */
+               if (wp + len + 1 > result + allocated)
+                 {
+                   allocated = (allocated + len) * 2;
+                   newp = (char *) realloc (result, allocated);
+                   if (newp == NULL)
+                     {
+                       free (result);
+                       return NULL;
+                     }
+                   wp = newp + (wp - result);
+                   result = newp;
+                 }
+     
+               wp = mempcpy (wp, s, len);
+             }
+     
+           /* Terminate the result string.  */
+           *wp++ = '\0';
+     
+           /* Resize memory to the optimal size.  */
+           newp = realloc (result, wp - result);
+           if (newp != NULL)
+             result = newp;
+     
+           va_end (ap);
+         }
+     
+       return result;
+     }
+
+   With a bit more knowledge about the input strings one could fine-tune
+the memory allocation.  The difference we are pointing to here is that
+we don't use `strcat' anymore.  We always keep track of the length of
+the current intermediate result so we can safe us the search for the
+end of the string and use `mempcpy'.  Please note that we also don't
+use `stpcpy' which might seem more natural since we handle with
+strings.  But this is not necessary since we already know the length of
+the string and therefore can use the faster memory copying function.
+
+   Whenever a programmer feels the need to use `strcat' she or he
+should think twice and look through the program whether the code cannot
+be rewritten to take advantage of already calculated results.  Again: it
+is almost always unnecessary to use `strcat'.
+
+ - Function: char * strncat (char *TO, const char *FROM, size_t SIZE)
+     This function is like `strcat' except that not more than SIZE
+     characters from FROM are appended to the end of TO.  A single null
+     character is also always appended to TO, so the total allocated
+     size of TO must be at least `SIZE + 1' bytes longer than its
+     initial length.
+
+     The `strncat' function could be implemented like this:
+
+          char *
+          strncat (char *to, const char *from, size_t size)
+          {
+            strncpy (to + strlen (to), from, size);
+            return to;
+          }
+
+     The behavior of `strncat' is undefined if the strings overlap.
+
+   Here is an example showing the use of `strncpy' and `strncat'.
+Notice how, in the call to `strncat', the SIZE parameter is computed to
+avoid overflowing the character array `buffer'.
+
+     #include <string.h>
+     #include <stdio.h>
+     
+     #define SIZE 10
+     
+     static char buffer[SIZE];
+     
+     main ()
+     {
+       strncpy (buffer, "hello", SIZE);
+       puts (buffer);
+       strncat (buffer, ", world", SIZE - strlen (buffer) - 1);
+       puts (buffer);
+     }
+
+The output produced by this program looks like:
+
+     hello
+     hello, wo
+
+ - Function: void bcopy (const void *FROM, void *TO, size_t SIZE)
+     This is a partially obsolete alternative for `memmove', derived
+     from BSD.  Note that it is not quite equivalent to `memmove',
+     because the arguments are not in the same order and there is no
+     return value.
+
+ - Function: void bzero (void *BLOCK, size_t SIZE)
+     This is a partially obsolete alternative for `memset', derived from
+     BSD.  Note that it is not as general as `memset', because the only
+     value it can store is zero.
+
+
+File: libc.info,  Node: String/Array Comparison,  Next: Collation Functions,  Prev: Copying and Concatenation,  Up: String and Array Utilities
+
+String/Array Comparison
+=======================
+
+   You can use the functions in this section to perform comparisons on
+the contents of strings and arrays.  As well as checking for equality,
+these functions can also be used as the ordering functions for sorting
+operations.  *Note Searching and Sorting::, for an example of this.
+
+   Unlike most comparison operations in C, the string comparison
+functions return a nonzero value if the strings are *not* equivalent
+rather than if they are.  The sign of the value indicates the relative
+ordering of the first characters in the strings that are not
+equivalent:  a negative value indicates that the first string is "less"
+than the second, while a positive value indicates that the first string
+is "greater".
+
+   The most common use of these functions is to check only for equality.
+This is canonically done with an expression like `! strcmp (s1, s2)'.
+
+   All of these functions are declared in the header file `string.h'.
+
+ - Function: int memcmp (const void *A1, const void *A2, size_t SIZE)
+     The function `memcmp' compares the SIZE bytes of memory beginning
+     at A1 against the SIZE bytes of memory beginning at A2.  The value
+     returned has the same sign as the difference between the first
+     differing pair of bytes (interpreted as `unsigned char' objects,
+     then promoted to `int').
+
+     If the contents of the two blocks are equal, `memcmp' returns `0'.
+
+   On arbitrary arrays, the `memcmp' function is mostly useful for
+testing equality.  It usually isn't meaningful to do byte-wise ordering
+comparisons on arrays of things other than bytes.  For example, a
+byte-wise comparison on the bytes that make up floating-point numbers
+isn't likely to tell you anything about the relationship between the
+values of the floating-point numbers.
+
+   You should also be careful about using `memcmp' to compare objects
+that can contain "holes", such as the padding inserted into structure
+objects to enforce alignment requirements, extra space at the end of
+unions, and extra characters at the ends of strings whose length is less
+than their allocated size.  The contents of these "holes" are
+indeterminate and may cause strange behavior when performing byte-wise
+comparisons.  For more predictable results, perform an explicit
+component-wise comparison.
+
+   For example, given a structure type definition like:
+
+     struct foo
+       {
+         unsigned char tag;
+         union
+           {
+             double f;
+             long i;
+             char *p;
+           } value;
+       };
+
+you are better off writing a specialized comparison function to compare
+`struct foo' objects instead of comparing them with `memcmp'.
+
+ - Function: int strcmp (const char *S1, const char *S2)
+     The `strcmp' function compares the string S1 against S2, returning
+     a value that has the same sign as the difference between the first
+     differing pair of characters (interpreted as `unsigned char'
+     objects, then promoted to `int').
+
+     If the two strings are equal, `strcmp' returns `0'.
+
+     A consequence of the ordering used by `strcmp' is that if S1 is an
+     initial substring of S2, then S1 is considered to be "less than"
+     S2.
+
+ - Function: int strcasecmp (const char *S1, const char *S2)
+     This function is like `strcmp', except that differences in case are
+     ignored.  How uppercase and lowercase characters are related is
+     determined by the currently selected locale.  In the standard `"C"'
+     locale the characters "A and "a do not match but in a locale which
+     regards these characters as parts of the alphabet they do match.
+
+     `strcasecmp' is derived from BSD.
+
+ - Function: int strncasecmp (const char *S1, const char *S2, size_t N)
+     This function is like `strncmp', except that differences in case
+     are ignored.  Like `strcasecmp', it is locale dependent how
+     uppercase and lowercase characters are related.
+
+     `strncasecmp' is a GNU extension.
+
+ - Function: int strncmp (const char *S1, const char *S2, size_t SIZE)
+     This function is the similar to `strcmp', except that no more than
+     SIZE characters are compared.  In other words, if the two strings
+     are the same in their first SIZE characters, the return value is
+     zero.
+
+   Here are some examples showing the use of `strcmp' and `strncmp'.
+These examples assume the use of the ASCII character set.  (If some
+other character set--say, EBCDIC--is used instead, then the glyphs are
+associated with different numeric codes, and the return values and
+ordering may differ.)
+
+     strcmp ("hello", "hello")
+         => 0    /* These two strings are the same. */
+     strcmp ("hello", "Hello")
+         => 32   /* Comparisons are case-sensitive. */
+     strcmp ("hello", "world")
+         => -15  /* The character `'h'' comes before `'w''. */
+     strcmp ("hello", "hello, world")
+         => -44  /* Comparing a null character against a comma. */
+     strncmp ("hello", "hello, world", 5)
+         => 0    /* The initial 5 characters are the same. */
+     strncmp ("hello, world", "hello, stupid world!!!", 5)
+         => 0    /* The initial 5 characters are the same. */
+
+ - Function: int strverscmp (const char *S1, const char *S2)
+     The `strverscmp' function compares the string S1 against S2,
+     considering them as holding indices/version numbers.  Return value
+     follows the same conventions as found in the `strverscmp'
+     function.  In fact, if S1 and S2 contain no digits, `strverscmp'
+     behaves like `strcmp'.
+
+     Basically, we compare strings normally (character by character),
+     until we find a digit in each string - then we enter a special
+     comparison mode, where each sequence of digits is taken as a
+     whole.  If we reach the end of these two parts without noticing a
+     difference, we return to the standard comparison mode.  There are
+     two types of numeric parts: "integral" and "fractional" (those
+     begin with a '0'). The types of the numeric parts affect the way
+     we sort them:
+
+        * integral/integral: we compare values as you would expect.
+
+        * fractional/integral: the fractional part is less than the
+          integral one.  Again, no surprise.
+
+        * fractional/fractional: the things become a bit more complex.
+          If the common prefix contains only leading zeroes, the
+          longest part is less than the other one; else the comparison
+          behaves normally.
+
+          strverscmp ("no digit", "no digit")
+              => 0    /* same behaviour as strcmp. */
+          strverscmp ("item#99", "item#100")
+              => <0   /* same prefix, but 99 < 100. */
+          strverscmp ("alpha1", "alpha001")
+              => >0   /* fractional part inferior to integral one. */
+          strverscmp ("part1_f012", "part1_f01")
+              => >0   /* two fractional parts. */
+          strverscmp ("foo.009", "foo.0")
+              => <0   /* idem, but with leading zeroes only. */
+
+     This function is especially useful when dealing with filename
+     sorting, because filenames frequently hold indices/version numbers.
+
+     `strverscmp' is a GNU extension.
+
+ - Function: int bcmp (const void *A1, const void *A2, size_t SIZE)
+     This is an obsolete alias for `memcmp', derived from BSD.
+
+
+File: libc.info,  Node: Collation Functions,  Next: Search Functions,  Prev: String/Array Comparison,  Up: String and Array Utilities
+
+Collation Functions
+===================
+
+   In some locales, the conventions for lexicographic ordering differ
+from the strict numeric ordering of character codes.  For example, in
+Spanish most glyphs with diacritical marks such as accents are not
+considered distinct letters for the purposes of collation.  On the
+other hand, the two-character sequence `ll' is treated as a single
+letter that is collated immediately after `l'.
+
+   You can use the functions `strcoll' and `strxfrm' (declared in the
+header file `string.h') to compare strings using a collation ordering
+appropriate for the current locale.  The locale used by these functions
+in particular can be specified by setting the locale for the
+`LC_COLLATE' category; see *Note Locales::.
+
+   In the standard C locale, the collation sequence for `strcoll' is
+the same as that for `strcmp'.
+
+   Effectively, the way these functions work is by applying a mapping to
+transform the characters in a string to a byte sequence that represents
+the string's position in the collating sequence of the current locale.
+Comparing two such byte sequences in a simple fashion is equivalent to
+comparing the strings with the locale's collating sequence.
+
+   The function `strcoll' performs this translation implicitly, in
+order to do one comparison.  By contrast, `strxfrm' performs the
+mapping explicitly.  If you are making multiple comparisons using the
+same string or set of strings, it is likely to be more efficient to use
+`strxfrm' to transform all the strings just once, and subsequently
+compare the transformed strings with `strcmp'.
+
+ - Function: int strcoll (const char *S1, const char *S2)
+     The `strcoll' function is similar to `strcmp' but uses the
+     collating sequence of the current locale for collation (the
+     `LC_COLLATE' locale).
+
+   Here is an example of sorting an array of strings, using `strcoll'
+to compare them.  The actual sort algorithm is not written here; it
+comes from `qsort' (*note Array Sort Function::.).  The job of the code
+shown here is to say how to compare the strings while sorting them.
+(Later on in this section, we will show a way to do this more
+efficiently using `strxfrm'.)
+
+     /* This is the comparison function used with `qsort'. */
+     
+     int
+     compare_elements (char **p1, char **p2)
+     {
+       return strcoll (*p1, *p2);
+     }
+     
+     /* This is the entry point--the function to sort
+        strings using the locale's collating sequence. */
+     
+     void
+     sort_strings (char **array, int nstrings)
+     {
+       /* Sort `temp_array' by comparing the strings. */
+       qsort (array, nstrings,
+              sizeof (char *), compare_elements);
+     }
+
+ - Function: size_t strxfrm (char *TO, const char *FROM, size_t SIZE)
+     The function `strxfrm' transforms STRING using the collation
+     transformation determined by the locale currently selected for
+     collation, and stores the transformed string in the array TO.  Up
+     to SIZE characters (including a terminating null character) are
+     stored.
+
+     The behavior is undefined if the strings TO and FROM overlap; see
+     *Note Copying and Concatenation::.
+
+     The return value is the length of the entire transformed string.
+     This value is not affected by the value of SIZE, but if it is
+     greater or equal than SIZE, it means that the transformed string
+     did not entirely fit in the array TO.  In this case, only as much
+     of the string as actually fits was stored.  To get the whole
+     transformed string, call `strxfrm' again with a bigger output
+     array.
+
+     The transformed string may be longer than the original string, and
+     it may also be shorter.
+
+     If SIZE is zero, no characters are stored in TO.  In this case,
+     `strxfrm' simply returns the number of characters that would be
+     the length of the transformed string.  This is useful for
+     determining what size string to allocate.  It does not matter what
+     TO is if SIZE is zero; TO may even be a null pointer.
+
+   Here is an example of how you can use `strxfrm' when you plan to do
+many comparisons.  It does the same thing as the previous example, but
+much faster, because it has to transform each string only once, no
+matter how many times it is compared with other strings.  Even the time
+needed to allocate and free storage is much less than the time we save,
+when there are many strings.
+
+     struct sorter { char *input; char *transformed; };
+     
+     /* This is the comparison function used with `qsort'
+        to sort an array of `struct sorter'. */
+     
+     int
+     compare_elements (struct sorter *p1, struct sorter *p2)
+     {
+       return strcmp (p1->transformed, p2->transformed);
+     }
+     
+     /* This is the entry point--the function to sort
+        strings using the locale's collating sequence. */
+     
+     void
+     sort_strings_fast (char **array, int nstrings)
+     {
+       struct sorter temp_array[nstrings];
+       int i;
+     
+       /* Set up `temp_array'.  Each element contains
+          one input string and its transformed string. */
+       for (i = 0; i < nstrings; i++)
+         {
+           size_t length = strlen (array[i]) * 2;
+           char *transformed;
+           size_t transformed_length;
+     
+           temp_array[i].input = array[i];
+     
+           /* First try a buffer perhaps big enough.  */
+           transformed = (char *) xmalloc (length);
+     
+           /* Transform `array[i]'.  */
+           transformed_length = strxfrm (transformed, array[i], length);
+     
+           /* If the buffer was not large enough, resize it
+              and try again.  */
+           if (transformed_length >= length)
+             {
+               /* Allocate the needed space. +1 for terminating
+                  `NUL' character.  */
+               transformed = (char *) xrealloc (transformed,
+                                                transformed_length + 1);
+     
+               /* The return value is not interesting because we know
+                  how long the transformed string is.  */
+               (void) strxfrm (transformed, array[i],
+                               transformed_length + 1);
+             }
+     
+           temp_array[i].transformed = transformed;
+         }
+     
+       /* Sort `temp_array' by comparing transformed strings. */
+       qsort (temp_array, sizeof (struct sorter),
+              nstrings, compare_elements);
+     
+       /* Put the elements back in the permanent array
+          in their sorted order. */
+       for (i = 0; i < nstrings; i++)
+         array[i] = temp_array[i].input;
+     
+       /* Free the strings we allocated. */
+       for (i = 0; i < nstrings; i++)
+         free (temp_array[i].transformed);
+     }
+
+   *Compatibility Note:*  The string collation functions are a new
+feature of ISO C90.  Older C dialects have no equivalent feature.
+
+
+File: libc.info,  Node: Search Functions,  Next: Finding Tokens in a String,  Prev: Collation Functions,  Up: String and Array Utilities
+
+Search Functions
+================
+
+   This section describes library functions which perform various kinds
+of searching operations on strings and arrays.  These functions are
+declared in the header file `string.h'.
+
+ - Function: void * memchr (const void *BLOCK, int C, size_t SIZE)
+     This function finds the first occurrence of the byte C (converted
+     to an `unsigned char') in the initial SIZE bytes of the object
+     beginning at BLOCK.  The return value is a pointer to the located
+     byte, or a null pointer if no match was found.
+
+ - Function: void * memrchr (const void *BLOCK, int C, size_t SIZE)
+     The function `memrchr' is like `memchr', except that it searches
+     backwards from the end of the block defined by BLOCK and SIZE
+     (instead of forwards from the front).
+
+ - Function: char * strchr (const char *STRING, int C)
+     The `strchr' function finds the first occurrence of the character
+     C (converted to a `char') in the null-terminated string beginning
+     at STRING.  The return value is a pointer to the located
+     character, or a null pointer if no match was found.
+
+     For example,
+          strchr ("hello, world", 'l')
+              => "llo, world"
+          strchr ("hello, world", '?')
+              => NULL
+
+     The terminating null character is considered to be part of the
+     string, so you can use this function get a pointer to the end of a
+     string by specifying a null character as the value of the C
+     argument.
+
+ - Function: char * strchrnul (const char *STRING, int C)
+     `strchrnul' is the same as `strchr' except that if it does not
+     find the character, it returns a pointer to string's terminating
+     null character rather than a null pointer.
+
+   One useful, but unusual, use of the `strchr' function is when one
+wants to have a pointer pointing to the NUL byte terminating a string.
+This is often written in this way:
+
+       s += strlen (s);
+
+This is almost optimal but the addition operation duplicated a bit of
+the work already done in the `strlen' function.  A better solution is
+this:
+
+       s = strchr (s, '\0');
+
+   There is no restriction on the second parameter of `strchr' so it
+could very well also be the NUL character.  Those readers thinking very
+hard about this might now point out that the `strchr' function is more
+expensive than the `strlen' function since we have two abort criteria.
+This is right.  But in the GNU C library the implementation of `strchr'
+is optimized in a special way so that `strchr' actually is faster.
+
+ - Function: char * strrchr (const char *STRING, int C)
+     The function `strrchr' is like `strchr', except that it searches
+     backwards from the end of the string STRING (instead of forwards
+     from the front).
+
+     For example,
+          strrchr ("hello, world", 'l')
+              => "ld"
+
+ - Function: char * strstr (const char *HAYSTACK, const char *NEEDLE)
+     This is like `strchr', except that it searches HAYSTACK for a
+     substring NEEDLE rather than just a single character.  It returns
+     a pointer into the string HAYSTACK that is the first character of
+     the substring, or a null pointer if no match was found.  If NEEDLE
+     is an empty string, the function returns HAYSTACK.
+
+     For example,
+          strstr ("hello, world", "l")
+              => "llo, world"
+          strstr ("hello, world", "wo")
+              => "world"
+
+ - Function: char * strcasestr (const char *HAYSTACK, const char
+          *NEEDLE)
+     This is like `strstr', except that it ignores case in searching for
+     the substring.   Like `strcasecmp', it is locale dependent how
+     uppercase and lowercase characters are related.
+
+     For example,
+          strstr ("hello, world", "L")
+              => "llo, world"
+          strstr ("hello, World", "wo")
+              => "World"
+
+ - Function: void * memmem (const void *HAYSTACK, size_t HAYSTACK-LEN,
+          const void *NEEDLE, size_t NEEDLE-LEN)
+     This is like `strstr', but NEEDLE and HAYSTACK are byte arrays
+     rather than null-terminated strings.  NEEDLE-LEN is the length of
+     NEEDLE and HAYSTACK-LEN is the length of HAYSTACK.
+
+     This function is a GNU extension.
+
+ - Function: size_t strspn (const char *STRING, const char *SKIPSET)
+     The `strspn' ("string span") function returns the length of the
+     initial substring of STRING that consists entirely of characters
+     that are members of the set specified by the string SKIPSET.  The
+     order of the characters in SKIPSET is not important.
+
+     For example,
+          strspn ("hello, world", "abcdefghijklmnopqrstuvwxyz")
+              => 5
+
+ - Function: size_t strcspn (const char *STRING, const char *STOPSET)
+     The `strcspn' ("string complement span") function returns the
+     length of the initial substring of STRING that consists entirely
+     of characters that are *not* members of the set specified by the
+     string STOPSET.  (In other words, it returns the offset of the
+     first character in STRING that is a member of the set STOPSET.)
+
+     For example,
+          strcspn ("hello, world", " \t\n,.;!?")
+              => 5
+
+ - Function: char * strpbrk (const char *STRING, const char *STOPSET)
+     The `strpbrk' ("string pointer break") function is related to
+     `strcspn', except that it returns a pointer to the first character
+     in STRING that is a member of the set STOPSET instead of the
+     length of the initial substring.  It returns a null pointer if no
+     such character from STOPSET is found.
+
+     For example,
+
+          strpbrk ("hello, world", " \t\n,.;!?")
+              => ", world"
+
+Compatibility String Search Functions
+-------------------------------------
+
+ - Function: char * index (const char *STRING, int C)
+     `index' is another name for `strchr'; they are exactly the same.
+     New code should always use `strchr' since this name is defined in
+     ISO C while `index' is a BSD invention which never was available
+     on System V derived systems.
+
+ - Function: char * rindex (const char *STRING, int C)
+     `rindex' is another name for `strrchr'; they are exactly the same.
+     New code should always use `strrchr' since this name is defined in
+     ISO C while `rindex' is a BSD invention which never was available
+     on System V derived systems.
+
+
+File: libc.info,  Node: Finding Tokens in a String,  Next: strfry,  Prev: Search Functions,  Up: String and Array Utilities
+
+Finding Tokens in a String
+==========================
+
+   It's fairly common for programs to have a need to do some simple
+kinds of lexical analysis and parsing, such as splitting a command
+string up into tokens.  You can do this with the `strtok' function,
+declared in the header file `string.h'.
+
+ - Function: char * strtok (char *NEWSTRING, const char *DELIMITERS)
+     A string can be split into tokens by making a series of calls to
+     the function `strtok'.
+
+     The string to be split up is passed as the NEWSTRING argument on
+     the first call only.  The `strtok' function uses this to set up
+     some internal state information.  Subsequent calls to get
+     additional tokens from the same string are indicated by passing a
+     null pointer as the NEWSTRING argument.  Calling `strtok' with
+     another non-null NEWSTRING argument reinitializes the state
+     information.  It is guaranteed that no other library function ever
+     calls `strtok' behind your back (which would mess up this internal
+     state information).
+
+     The DELIMITERS argument is a string that specifies a set of
+     delimiters that may surround the token being extracted.  All the
+     initial characters that are members of this set are discarded.
+     The first character that is *not* a member of this set of
+     delimiters marks the beginning of the next token.  The end of the
+     token is found by looking for the next character that is a member
+     of the delimiter set.  This character in the original string
+     NEWSTRING is overwritten by a null character, and the pointer to
+     the beginning of the token in NEWSTRING is returned.
+
+     On the next call to `strtok', the searching begins at the next
+     character beyond the one that marked the end of the previous token.
+     Note that the set of delimiters DELIMITERS do not have to be the
+     same on every call in a series of calls to `strtok'.
+
+     If the end of the string NEWSTRING is reached, or if the remainder
+     of string consists only of delimiter characters, `strtok' returns
+     a null pointer.
+
+   *Warning:* Since `strtok' alters the string it is parsing, you
+should always copy the string to a temporary buffer before parsing it
+with `strtok'.  If you allow `strtok' to modify a string that came from
+another part of your program, you are asking for trouble; that string
+might be used for other purposes after `strtok' has modified it, and it
+would not have the expected value.
+
+   The string that you are operating on might even be a constant.  Then
+when `strtok' tries to modify it, your program will get a fatal signal
+for writing in read-only memory.  *Note Program Error Signals::.  Even
+if the operation of `strtok' would not require a modification of the
+string (e.g., if there is exactly one token) the string can (and in the
+GNU libc case will) be modified.
+
+   This is a special case of a general principle: if a part of a program
+does not have as its purpose the modification of a certain data
+structure, then it is error-prone to modify the data structure
+temporarily.
+
+   The function `strtok' is not reentrant.  *Note Nonreentrancy::, for
+a discussion of where and why reentrancy is important.
+
+   Here is a simple example showing the use of `strtok'.
+
+     #include <string.h>
+     #include <stddef.h>
+     
+     ...
+     
+     const char string[] = "words separated by spaces -- and, punctuation!";
+     const char delimiters[] = " .,;:!-";
+     char *token, *cp;
+     
+     ...
+     
+     cp = strdupa (string);                /* Make writable copy.  */
+     token = strtok (cp, delimiters);      /* token => "words" */
+     token = strtok (NULL, delimiters);    /* token => "separated" */
+     token = strtok (NULL, delimiters);    /* token => "by" */
+     token = strtok (NULL, delimiters);    /* token => "spaces" */
+     token = strtok (NULL, delimiters);    /* token => "and" */
+     token = strtok (NULL, delimiters);    /* token => "punctuation" */
+     token = strtok (NULL, delimiters);    /* token => NULL */
+
+   The GNU C library contains two more functions for tokenizing a string
+which overcome the limitation of non-reentrancy.
+
+ - Function: char * strtok_r (char *NEWSTRING, const char *DELIMITERS,
+          char **SAVE_PTR)
+     Just like `strtok', this function splits the string into several
+     tokens which can be accessed by successive calls to `strtok_r'.
+     The difference is that the information about the next token is
+     stored in the space pointed to by the third argument, SAVE_PTR,
+     which is a pointer to a string pointer.  Calling `strtok_r' with a
+     null pointer for NEWSTRING and leaving SAVE_PTR between the calls
+     unchanged does the job without hindering reentrancy.
+
+     This function is defined in POSIX.1 and can be found on many
+     systems which support multi-threading.
+
+ - Function: char * strsep (char **STRING_PTR, const char *DELIMITER)
+     This function has a similar functionality as `strtok_r' with the
+     NEWSTRING argument replaced by the SAVE_PTR argument.  The
+     initialization of the moving pointer has to be done by the user.
+     Successive calls to `strsep' move the pointer along the tokens
+     separated by DELIMITER, returning the address of the next token
+     and updating STRING_PTR to point to the beginning of the next
+     token.
+
+     One difference between `strsep' and `strtok_r' is that if the
+     input string contains more than one character from DELIMITER in a
+     row `strsep' returns an empty string for each pair of characters
+     from DELIMITER.  This means that a program normally should test
+     for `strsep' returning an empty string before processing it.
+
+     This function was introduced in 4.3BSD and therefore is widely
+     available.
+
+   Here is how the above example looks like when `strsep' is used.
+
+     #include <string.h>
+     #include <stddef.h>
+     
+     ...
+     
+     const char string[] = "words separated by spaces -- and, punctuation!";
+     const char delimiters[] = " .,;:!-";
+     char *running;
+     char *token;
+     
+     ...
+     
+     running = strdupa (string);
+     token = strsep (&running, delimiters);    /* token => "words" */
+     token = strsep (&running, delimiters);    /* token => "separated" */
+     token = strsep (&running, delimiters);    /* token => "by" */
+     token = strsep (&running, delimiters);    /* token => "spaces" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => "and" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => "punctuation" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => NULL */
+
+
+File: libc.info,  Node: strfry,  Next: Trivial Encryption,  Prev: Finding Tokens in a String,  Up: String and Array Utilities
+
+strfry
+======
+
+   The function below addresses the perennial programming quandary:
+"How do I take good data in string form and painlessly turn it into
+garbage?"  This is actually a fairly simple task for C programmers who
+do not use the GNU C library string functions, but for programs based
+on the GNU C library, the `strfry' function is the preferred method for
+destroying string data.
+
+   The prototype for this function is in `string.h'.
+
+ - Function: char * strfry (char *STRING)
+     `strfry' creates a pseudorandom anagram of a string, replacing the
+     input with the anagram in place.  For each position in the string,
+     `strfry' swaps it with a position in the string selected at random
+     (from a uniform distribution).  The two positions may be the same.
+
+     The return value of `strfry' is always STRING.
+
+     *Portability Note:*  This function is unique to the GNU C library.
+
+

@@ -1,0 +1,142 @@
+2002-10-10  Ulrich Drepper  <drepper@redhat.com>
+
+	* posix/Versions (libc) [GLIBC_PRIVATE]: Add __pselect.
+
+2002-10-09  Ulrich Drepper  <drepper@redhat.com>
+
+	* sysdeps/generic/ldsodefs.h: Remove attribute_hidden from
+	_dl_allocate_tls_init.  Add rtld_hidden_proto.
+	* sysdeps/generic/dl-tls.c (_dl_allocate_tls_init): Add
+	rtld_hidden_def.
+	* elf/Versions (ld) [GLIBC_PRIVATE]: Add _dl_allocate_tls_init.
+
+	* version.h (VERSION): Bump to 2.3.1.
+
+	* Make-dist: Add back one of the tar invocations removed before.
+
+	* stdlib/Makefile (distribute): Add allocalim.h.
+
+	* sysdeps/generic/bits/libc-tsd.h [!(USE_TLS && HAVE___THREAD)]
+	(__libc_tsd_address): Use correct variable name.
+	Patch by Stefan Jones <stefan.jones@multigig.com>.
+
+	* sysdeps/unix/sysv/linux/ia64/getcontext.S: Add missing ;;.
+	Reported by edwardsg@sgi.com [PR libc/4678].
+
+	* Versions.def (libc): Add GLIBC_2.3.1.
+	(libpthread): Add GLIBC_2.3.1.
+
+	* include/signal.h: Add libc_hidden_proto for __sigwait, __sigwaitinfo,
+	and __sigtimedwait.
+	* signal/Versions: Add __sigtimedwait, __sigwait, and __sigwaitinfo.
+	* sysdeps/unix/sysv/linux/sigtimedwait.c (__sigtimedwait): Add
+	libc_hidden_def.
+	* sysdeps/unix/sysv/linux/sigwait.c (__sigwait): Likewise.
+	* sysdeps/unix/sysv/linux/sigwaitinfo.c (__sigwaitinfo): Likewise.
+
+	* include/sys/msg.h: Declare __libc_msgrcv and __libc_msgsnd.
+	* sysdeps/unix/sysv/linux/msgrcv.c (__msgrcv): Rename to __libc_msgrcv
+	and make old name an alias.
+	* sysdeps/unix/sysv/linux/msgsnd.c (__msgsnd): Rename to __libc_msgsnd
+	and make old name an alias.
+	* sysvipc/Versions (libc) [GLIBC_PRIVATE]: Add __libc_msgrcv and
+	__libc_msgsnd.
+
+	* include/sys/uio.h: Declare __libc_readv and __libc_writev.
+	* misc/Versions (libc) [GLIBC_PRIVATE]: Add __libc_readv and
+	__libc_writev.
+	* sysdeps/generic/readv.c (__readv): Rename to __libc_readv and make
+	old name an alias.
+	* sysdeps/posix/readv.c: Likewise
+	* sysdeps/unix/sysv/aix/readv.c: Likewise.
+	* sysdeps/unix/sysv/linux/readv.c: Likewise.
+	* sysdeps/generic/writev.c (__writev): Rename to __libc_writev and make
+	old name an alias.
+	* sysdeps/posix/writev.c: Likewise
+	* sysdeps/unix/sysv/aix/writev.c: Likewise.
+	* sysdeps/unix/sysv/linux/writev.c: Likewise.
+
+	* include/sys/wait.h: Declare __waitid.
+	* posix/Versions (libc) [GLIBC_PRIVATE]: Add __waitid.
+	* sysdeps/generic/waitid.c (waitid): Rename to __waitid and make old
+	name an alias.
+	* sysdeps/posix/waitid.c: Likewise.
+	* sysdeps/unix/sysv/aix/waitid.c: Likewise.
+
+	* sysdeps/unix/sysv/linux/syscalls.list: Add creat syscall.
+
+2002-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* include/alloca.h (__libc_use_alloca, __libc_alloca_cutoff): New
+	prototypes.
+	(__MAX_ALLOCA_CUTOFF): Define.
+	Include allocalim.h.
+	* resolv/nss_dns/dns-host.c (_nss_dns_gethostbyname2_r,
+	_nss_dns_gethostbyaddr_r): Use alloca or malloc to allocate
+	host_buffer depending on __libc_use_alloca.
+	* resolv/nss_dns/dns-network.c (_nss_dns_getnetbyname_r,
+	_nss_dns_getnetbyaddr_r): Use alloca or malloc to allocate
+	net_buffer depending on __libc_use_alloca.
+	* resolv/res_query.c (res_nquery): Use alloca or malloc to allocate
+	buf depending on __libc_use_alloca.
+	* resolv/gethnamaddr.c (gethostbyname2, gethostbyaddr): Likewise.
+	* stdio-common/vfprintf.c (vfprintf): Use __libc_use_alloca
+	instead of hardcoded constants.
+	Pass proper size argument to alloca and compute end for wide char
+	version.
+	* stdio-common/printf_fp.c (__printf_fp): Use __libc_use_alloca
+	instead of hardcoded constants.
+	* string/strcoll.c (strcoll): Likewise.
+	* string/strxfrm.c (strxfrm): Likewise.
+	* sysdeps/posix/readv.c (__readv): Likewise.
+	* sysdeps/posix/writev.c (__writev): Likewise.
+	* sysdeps/generic/allocalim.h: New file.
+
+2002-10-08  Roland McGrath  <roland@redhat.com>
+
+	* configure.in (aux_missing warning): Change "too old" to
+	"incompatible versions", since for autoconf it's "too new" right now.
+	* configure: Regenerated.
+
+	* configure.in (AUTOCONF): New check to set it.  Set to "no" if the
+	one found doesn't work on our configure.in.
+	* configure: Regenerated.
+	* config.make.in (AUTOCONF): New substituted variable.
+	* Makefile (autoconf-it-cvs): New canned sequence, broken out of ...
+	(autoconf-it): ... here, use that instead of defining conditionally.
+	Use $(AUTOCONF) instead of literal autoconf.
+	[$(AUTOCONF) != no] (configure, %/configure): Protect these rules
+	with this condition.
+	* Make-dist (autoconf-it, configure, %/configure): Copy those changes.
+
+2002-10-08  Ulrich Drepper  <drepper@redhat.com>
+
+	* Make-dist (dist): Cleanup a bit.  We are not interested in the
+	14 char filename limit anymore.  Remove intermediate files and
+	symlinks.
+
+2002-10-05  Ulrich Drepper  <drepper@redhat.com>
+
+	* po/sk.po: Update from translation team.
+	* po/tr.po: Likewise.
+	* po/gl.po: Likewise.
+
+2002-10-05  Kaz Kojima  <kkojima@rr.iij4u.or.jp>
+
+	* elf/tls-macros.h: Fix SH version of macros so as to match ABI syntax.
+
+2002-10-03  Ulrich Drepper  <drepper@redhat.com>
+
+	* version.h (RELEASE): Change to stable.
+
+2002-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* sysdeps/unix/sysv/linux/_exit.c (__syscall_exit,
+	__syscall_exit_group): New prototypes.
+
+2002-10-03  Ulrich Drepper  <drepper@redhat.com>
+
+	* glibc 2.3 released.
+
+
+See ChangeLog.13 for earlier changes.

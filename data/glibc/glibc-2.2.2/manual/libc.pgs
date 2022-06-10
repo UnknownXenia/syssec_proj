@@ -1,0 +1,105 @@
+\initial {-}
+\entry {\code {-lbsd-compat}}{8, 731}
+\initial {/}
+\entry {\code {/etc/group}}{766}
+\entry {\code {/etc/hosts}}{423}
+\entry {\code {/etc/localtime}}{578}
+\entry {\code {/etc/networks}}{454}
+\entry {\code {/etc/passwd}}{763}
+\entry {\code {/etc/protocols}}{429}
+\entry {\code {/etc/services}}{427}
+\entry {\code {/share/lib/zoneinfo}}{578}
+\initial {A}
+\entry {\code {argp.h}}{666}
+\entry {\code {argz.h}}{112}
+\entry {\code {arpa/inet.h}}{421}
+\entry {\code {assert.h}}{845}
+\initial {B}
+\entry {\code {bsd-compat}}{8, 731}
+\initial {C}
+\entry {\code {cd}}{361}
+\entry {\code {chgrp}}{387}
+\entry {\code {chown}}{387}
+\entry {\code {complex.h}}{493, 541}
+\entry {\code {ctype.h}}{67, 69}
+\initial {D}
+\entry {\code {dirent.h}}{7, 363, 364, 365, 367}
+\initial {E}
+\entry {\code {envz.h}}{114}
+\entry {\code {errno.h}}{15, 16}
+\entry {\code {execinfo.h}}{819}
+\initial {F}
+\entry {\code {fcntl.h}}{7, 313, 345, 346, 348, 349, 355, 358}
+\entry {\code {float.h}}{857}
+\entry {\code {fnmatch.h}}{213}
+\initial {G}
+\entry {\code {gcc}}{2}
+\entry {\code {gconv.h}}{149}
+\entry {\code {grp.h}}{7, 750, 766}
+\initial {H}
+\entry {\code {hostid}}{773}
+\entry {\code {hostname}}{773}
+\initial {I}
+\entry {\code {iconv.h}}{140, 141, 142}
+\initial {K}
+\entry {\code {kill}}{614}
+\initial {L}
+\entry {\code {langinfo.h}}{170}
+\entry {\code {limits.h}}{7, 122, 789, 802, 854}
+\entry {\code {locale}}{163}
+\entry {\code {locale.h}}{163, 166}
+\entry {\code {localtime}}{578}
+\entry {\code {ls}}{379}
+\initial {M}
+\entry {\code {malloc.h}}{39, 41, 44}
+\entry {\code {math.h}}{493, 522, 533, 534, 535}
+\entry {\code {mcheck.h}}{39}
+\entry {\code {mkdir}}{379}
+\initial {N}
+\entry {\code {netdb.h}}{423, 427, 429, 454}
+\entry {\code {netinet/in.h}}{418, 420, 427, 429}
+\initial {O}
+\entry {\code {obstack.h}}{50}
+\initial {P}
+\entry {\code {printf.h}}{276}
+\entry {\code {pwd.h}}{7, 763}
+\initial {S}
+\entry {\code {setjmp.h}}{606, 607}
+\entry {\code {sh}}{703}
+\entry {\code {signal.h}}{7, 611, 620, 622, 625, 638, 639, 643, 644, 647, 654}
+\entry {\code {stdarg.h}}{848, 850}
+\entry {\code {stddef.h}}{853}
+\entry {\code {stdint.h}}{519}
+\entry {\code {stdio.h}}{239, 240, 249, 251, 258, 267, 271, 289, 293, 296, 298, 299, 302, 305, 323, 377, 398, 620, 730, 754}
+\entry {\code {stdlib.h}}{34, 35, 36, 37, 38, 60, 122, 136, 204, 481, 512, 520, 533, 542, 547, 693, 699, 701, 703}
+\entry {\code {string.h}}{79, 81, 92, 95, 99, 104, 109, 620}
+\entry {\code {sys/param.h}}{774}
+\entry {\code {sys/resource.h}}{585, 588, 598}
+\entry {\code {sys/socket.h}}{410, 412, 413, 415, 417, 432, 433, 438, 439, 440, 447, 452, 453}
+\entry {\code {sys/stat.h}}{7, 379, 385, 388, 390, 397, 407}
+\entry {\code {sys/time.h}}{394, 556, 581}
+\entry {\code {sys/times.h}}{7, 554}
+\entry {\code {sys/timex.h}}{561}
+\entry {\code {sys/types.h}}{330, 704, 730, 732, 747, 748, 749}
+\entry {\code {sys/un.h}}{415}
+\entry {\code {sys/utsname.h}}{775}
+\entry {\code {sys/vlimit.h}}{591}
+\entry {\code {sys/vtimes.h}}{586}
+\entry {\code {sys/wait.h}}{708, 711, 712}
+\initial {T}
+\entry {\code {termios.h}}{7, 459}
+\entry {\code {time.h}}{393, 553, 556, 564, 577}
+\initial {U}
+\entry {\code {ulimit.h}}{590}
+\entry {\code {umask}}{390}
+\entry {\code {unistd.h}}{313, 316, 323, 346, 361, 374, 375, 376, 377, 387, 392, 393, 403, 457, 581, 659, 701, 704, 705, 706, 730, 732, 747, 748, 749, 754, 773, 790, 803, 804}
+\entry {\code {utime.h}}{393}
+\entry {\code {utmp.h}}{755, 762}
+\entry {\code {utmpx.h}}{760}
+\initial {V}
+\entry {\code {varargs.h}}{852}
+\initial {W}
+\entry {\code {wchar.h}}{81, 95, 118, 119, 123, 124, 125, 127, 128, 130, 131, 249, 251, 542}
+\entry {\code {wctype.h}}{70, 71, 72, 73, 74, 75}
+\initial {Z}
+\entry {\code {zoneinfo}}{578}

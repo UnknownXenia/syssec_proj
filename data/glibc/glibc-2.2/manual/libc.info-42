@@ -1,0 +1,1036 @@
+This is Info file libc.info, produced by Makeinfo version 1.68 from the
+input file libc.texinfo.
+
+INFO-DIR-SECTION GNU libraries
+START-INFO-DIR-ENTRY
+* Libc: (libc).                 C library.
+END-INFO-DIR-ENTRY
+
+   This file documents the GNU C library.
+
+   This is Edition 0.09 DRAFT, last updated 28 Aug 1999, of `The GNU C
+Library Reference Manual', for Version 2.2 Beta.
+
+   Copyright (C) 1993, '94, '95, '96, '97, '98, '99 Free Software
+Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "GNU Library General Public License" is
+included exactly as in the original, and provided that the entire
+resulting derived work is distributed under the terms of a permission
+notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the text of the translation of the section
+entitled "GNU Library General Public License" must be approved for
+accuracy by the Foundation.
+
+
+File: libc.info,  Node: NSS Modules Interface,  Prev: NSS Module Names,  Up: NSS Module Internals
+
+The Interface of the Function in NSS Modules
+--------------------------------------------
+
+   Now we know about the functions contained in the modules.  It is now
+time to describe the types.  When we mentioned the reentrant versions of
+the functions above, this means there are some additional arguments
+(compared with the standard, non-reentrant version).  The prototypes for
+the non-reentrant and reentrant versions of our function above are:
+
+     struct hostent *gethostbyname (const char *name)
+     
+     int gethostbyname_r (const char *name, struct hostent *result_buf,
+                          char *buf, size_t buflen, struct hostent **result,
+                          int *h_errnop)
+
+The actual prototype of the function in the NSS modules in this case is
+
+     enum nss_status _nss_files_gethostbyname_r (const char *name,
+                                                 struct hostent *result_buf,
+                                                 char *buf, size_t buflen,
+                                                 int *errnop, int *h_errnop)
+
+   I.e., the interface function is in fact the reentrant function with
+the change of the return value and the omission of the RESULT
+parameter.  While the user-level function returns a pointer to the
+result the reentrant function return an `enum nss_status' value:
+
+`NSS_STATUS_TRYAGAIN'
+     numeric value `-2'
+
+`NSS_STATUS_UNAVAIL'
+     numeric value `-1'
+
+`NSS_STATUS_NOTFOUND'
+     numeric value `0'
+
+`NSS_STATUS_SUCCESS'
+     numeric value `1'
+
+Now you see where the action items of the `/etc/nsswitch.conf' file are
+used.
+
+   If you study the source code you will find there is a fifth value:
+`NSS_STATUS_RETURN'.  This is an internal use only value, used by a few
+functions in places where none of the above value can be used.  If
+necessary the source code should be examined to learn about the details.
+
+   In case the interface function has to return an error it is important
+that the correct error code is stored in `*ERRNOP'.  Some return status
+value have only one associated error code, others have more.
+
+`NSS_STATUS_TRYAGAIN'   `EAGAIN'      One of the functions used ran        
+                                      temporarily out of resources or a    
+                                      service is currently not available.  
+                       `ERANGE'       The provided buffer is not large     
+                                      enough.  The function should be      
+                                      called again with a larger buffer.   
+`NSS_STATUS_UNAVAIL'    `ENOENT'      A necessary input file cannot be     
+                                      found.                               
+`NSS_STATUS_NOTFOUND'   `ENOENT'      The requested entry is not           
+                                      available.                           
+
+   These are proposed values.  There can be other error codes and the
+described error codes can have different meaning.  *With one
+exception:* when returning `NSS_STATUS_TRYAGAIN' the error code
+`ERANGE' *must* mean that the user provided buffer is too small.
+Everything is non-critical.
+
+   The above function has something special which is missing for almost
+all the other module functions.  There is an argument H_ERRNOP.  This
+points to a variable which will be filled with the error code in case
+the execution of the function fails for some reason.  The reentrant
+function cannot use the global variable H_ERRNO; `gethostbyname' calls
+`gethostbyname_r' with the last argument set to `&h_errno'.
+
+   The `getXXXbyYYY' functions are the most important functions in the
+NSS modules.  But there are others which implement the other ways to
+access system databases (say for the password database, there are
+`setpwent', `getpwent', and `endpwent').  These will be described in
+more detail later.  Here we give a general way to determine the
+signature of the module function:
+
+   * the return value is `int';
+
+   * the name is as explained in *note NSS Module Names::.;
+
+   * the first arguments are identical to the arguments of the
+     non-reentrant function;
+
+   * the next three arguments are:
+
+    `STRUCT_TYPE *result_buf'
+          pointer to buffer where the result is stored.  `STRUCT_TYPE'
+          is normally a struct which corresponds to the database.
+
+    `char *buffer'
+          pointer to a buffer where the function can store additional
+          adata for the result etc.
+
+    `size_t buflen'
+          length of the buffer pointed to by BUFFER.
+
+   * possibly a last argument H_ERRNOP, for the host name and network
+     name lookup functions.
+
+This table is correct for all functions but the `set...ent' and
+`end...ent' functions.
+
+
+File: libc.info,  Node: Extending NSS,  Prev: NSS Module Internals,  Up: Name Service Switch
+
+Extending NSS
+=============
+
+   One of the advantages of NSS mentioned above is that it can be
+extended quite easily.  There are two ways in which the extension can
+happen: adding another database or adding another service.  The former
+is normally done only by the C library developers.  It is here only
+important to remember that adding another database is independent from
+adding another service because a service need not support all databases
+or lookup functions.
+
+   A designer/implementor of a new service is therefore free to choose
+the databases s/he is interested in and leave the rest for later (or
+completely aside).
+
+* Menu:
+
+* Adding another Service to NSS::  What is to do to add a new service.
+* NSS Module Function Internals::  Guidelines for writing new NSS
+                                        service functions.
+
+
+File: libc.info,  Node: Adding another Service to NSS,  Next: NSS Module Function Internals,  Prev: Extending NSS,  Up: Extending NSS
+
+Adding another Service to NSS
+-----------------------------
+
+   The sources for a new service need not (and should not) be part of
+the GNU C Library itself.  The developer retains complete control over
+the sources and its development.  The links between the C library and
+the new service module consists solely of the interface functions.
+
+   Each module is designed following a specific interface specification.
+For now the version is 2 (the interface in version 1 was not adequate)
+and this manifests in the version number of the shared library object of
+the NSS modules: they have the extension `.2'.  If the interface
+changes again in an incompatible way, this number will be increased.
+Modules using the old interface will still be usable.
+
+   Developers of a new service will have to make sure that their module
+is created using the correct interface number.  This means the file
+itself must have the correct name and on ElF systems the "soname"
+(Shared Object Name) must also have this number.  Building a module
+from a bunch of object files on an ELF system using GNU CC could be
+done like this:
+
+     gcc -shared -o libnss_NAME.so.2 -Wl,-soname,libnss_NAME.so.2 OBJECTS
+
+*Note Options for Linking: (gcc)Link Options, to learn more about this
+command line.
+
+   To use the new module the library must be able to find it.  This can
+be achieved by using options for the dynamic linker so that it will
+search the directory where the binary is placed.  For an ELF system
+this could be done by adding the wanted directory to the value of
+`LD_LIBRARY_PATH'.
+
+   But this is not always possible since some programs (those which run
+under IDs which do not belong to the user) ignore this variable.
+Therefore the stable version of the module should be placed into a
+directory which is searched by the dynamic linker.  Normally this should
+be the directory `$prefix/lib', where `$prefix' corresponds to the
+value given to configure using the `--prefix' option.  But be careful:
+this should only be done if it is clear the module does not cause any
+harm.  System administrators should be careful.
+
+
+File: libc.info,  Node: NSS Module Function Internals,  Prev: Adding another Service to NSS,  Up: Extending NSS
+
+Internals of the NSS Module Functions
+-------------------------------------
+
+   Until now we only provided the syntactic interface for the functions
+in the NSS module.  In fact there is not much more we can say since the
+implementation obviously is different for each function.  But a few
+general rules must be followed by all functions.
+
+   In fact there are four kinds of different functions which may appear
+in the interface.  All derive from the traditional ones for system
+databases.  DB in the following table is normally an abbreviation for
+the database (e.g., it is `pw' for the password database).
+
+`enum nss_status _nss_DATABASE_setDBent (void)'
+     This function prepares the service for following operations.  For a
+     simple file based lookup this means files could be opened, for
+     other services this function simply is a noop.
+
+     One special case for this function is that it takes an additional
+     argument for some DATABASEs (i.e., the interface is `int setDBent
+     (int)').  *Note Host Names::, which describes the `sethostent'
+     function.
+
+     The return value should be NSS_STATUS_SUCCESS or according to the
+     table above in case of an error (*note NSS Modules Interface::.).
+
+`enum nss_status _nss_DATABASE_endDBent (void)'
+     This function simply closes all files which are still open or
+     removes buffer caches.  If there are no files or buffers to remove
+     this is again a simple noop.
+
+     There normally is no return value different to NSS_STATUS_SUCCESS.
+
+`enum nss_status _nss_DATABASE_getDBent_r (STRUCTURE *result, char *buffer, size_t buflen, int *errnop)'
+     Since this function will be called several times in a row to
+     retrieve one entry after the other it must keep some kind of
+     state.  But this also means the functions are not really
+     reentrant.  They are reentrant only in that simultaneous calls to
+     this function will not try to write the retrieved data in the same
+     place (as it would be the case for the non-reentrant functions);
+     instead, it writes to the structure pointed to by the RESULT
+     parameter.  But the calls share a common state and in the case of
+     a file access this means they return neighboring entries in the
+     file.
+
+     The buffer of length BUFLEN pointed to by BUFFER can be used for
+     storing some additional data for the result.  It is *not*
+     guaranteed that the same buffer will be passed for the next call
+     of this function.  Therefore one must not misuse this buffer to
+     save some state information from one call to another.
+
+     Before the function returns the implementation should store the
+     value of the local ERRNO variable in the variable pointed to be
+     ERRNOP.  This is important to guarantee the module working in
+     statically linked programs.
+
+     As explained above this function could also have an additional last
+     argument.  This depends on the database used; it happens only for
+     `host' and `networks'.
+
+     The function shall return `NSS_STATUS_SUCCESS' as long as there are
+     more entries.  When the last entry was read it should return
+     `NSS_STATUS_NOTFOUND'.  When the buffer given as an argument is too
+     small for the data to be returned `NSS_STATUS_TRYAGAIN' should be
+     returned.  When the service was not formerly initialized by a call
+     to `_nss_DATABASE_setDBent' all return value allowed for this
+     function can also be returned here.
+
+`enum nss_status _nss_DATABASE_getDBbyXX_r (PARAMS, STRUCTURE *result, char *buffer, size_t buflen, int *errnop)'
+     This function shall return the entry from the database which is
+     addressed by the PARAMS.  The type and number of these arguments
+     vary.  It must be individually determined by looking to the
+     user-level interface functions.  All arguments given to the
+     non-reentrant version are here described by PARAMS.
+
+     The result must be stored in the structure pointed to by RESULT.
+     If there is additional data to return (say strings, where the
+     RESULT structure only contains pointers) the function must use the
+     BUFFER or length BUFLEN.  There must not be any references to
+     non-constant global data.
+
+     The implementation of this function should honour the STAYOPEN
+     flag set by the `setDBent' function whenever this makes sense.
+
+     Before the function returns the implementation should store the
+     value of the local ERRNO variable in the variable pointed to be
+     ERRNOP.  This is important to guarantee the module working in
+     statically linked programs.
+
+     Again, this function takes an additional last argument for the
+     `host' and `networks' database.
+
+     The return value should as always follow the rules given above
+     (*note NSS Modules Interface::.).
+
+
+File: libc.info,  Node: Users and Groups,  Next: System Management,  Prev: Name Service Switch,  Up: Top
+
+Users and Groups
+****************
+
+   Every user who can log in on the system is identified by a unique
+number called the "user ID".  Each process has an effective user ID
+which says which user's access permissions it has.
+
+   Users are classified into "groups" for access control purposes.  Each
+process has one or more "group ID values" which say which groups the
+process can use for access to files.
+
+   The effective user and group IDs of a process collectively form its
+"persona".  This determines which files the process can access.
+Normally, a process inherits its persona from the parent process, but
+under special circumstances a process can change its persona and thus
+change its access permissions.
+
+   Each file in the system also has a user ID and a group ID.  Access
+control works by comparing the user and group IDs of the file with those
+of the running process.
+
+   The system keeps a database of all the registered users, and another
+database of all the defined groups.  There are library functions you
+can use to examine these databases.
+
+* Menu:
+
+* User and Group IDs::          Each user has a unique numeric ID;
+				 likewise for groups.
+* Process Persona::             The user IDs and group IDs of a process.
+* Why Change Persona::          Why a program might need to change
+				 its user and/or group IDs.
+* How Change Persona::          Changing the user and group IDs.
+* Reading Persona::             How to examine the user and group IDs.
+
+* Setting User ID::             Functions for setting the user ID.
+* Setting Groups::              Functions for setting the group IDs.
+
+* Enable/Disable Setuid::       Turning setuid access on and off.
+* Setuid Program Example::      The pertinent parts of one sample program.
+* Tips for Setuid::             How to avoid granting unlimited access.
+
+* Who Logged In::               Getting the name of the user who logged in,
+				 or of the real user ID of the current process.
+
+* User Accounting Database::    Keeping information about users and various
+                                 actions in databases.
+
+* User Database::               Functions and data structures for
+                        	 accessing the user database.
+* Group Database::              Functions and data structures for
+                        	 accessing the group database.
+* Database Example::            Example program showing the use of database
+				 inquiry functions.
+* Netgroup Database::           Functions for accessing the netgroup database.
+
+
+File: libc.info,  Node: User and Group IDs,  Next: Process Persona,  Up: Users and Groups
+
+User and Group IDs
+==================
+
+   Each user account on a computer system is identified by a "user
+name" (or "login name") and "user ID".  Normally, each user name has a
+unique user ID, but it is possible for several login names to have the
+same user ID.  The user names and corresponding user IDs are stored in
+a data base which you can access as described in *Note User Database::.
+
+   Users are classified in "groups".  Each user name belongs to one
+"default group" and may also belong to any number of "supplementary
+groups". Users who are members of the same group can share resources
+(such as files) that are not accessible to users who are not a member
+of that group.  Each group has a "group name" and "group ID".  *Note
+Group Database::, for how to find information about a group ID or group
+name.
+
+
+File: libc.info,  Node: Process Persona,  Next: Why Change Persona,  Prev: User and Group IDs,  Up: Users and Groups
+
+The Persona of a Process
+========================
+
+   At any time, each process has an "effective user ID", a "effective
+group ID", and a set of "supplementary group IDs".  These IDs determine
+the privileges of the process.  They are collectively called the
+"persona" of the process, because they determine "who it is" for
+purposes of access control.
+
+   Your login shell starts out with a persona which consists of your
+user ID, your default group ID, and your supplementary group IDs (if
+you are in more than one group).  In normal circumstances, all your
+other processes inherit these values.
+
+   A process also has a "real user ID" which identifies the user who
+created the process, and a "real group ID" which identifies that user's
+default group.  These values do not play a role in access control, so
+we do not consider them part of the persona.  But they are also
+important.
+
+   Both the real and effective user ID can be changed during the
+lifetime of a process.  *Note Why Change Persona::.
+
+   For details on how a process's effective user ID and group IDs affect
+its permission to access files, see *Note Access Permission::.
+
+   The effective user ID of a process also controls permissions for
+sending signals using the `kill' function.  *Note Signaling Another
+Process::.
+
+   Finally, there are many operations which can only be performed by a
+process whose effective user ID is zero.  A process with this user ID is
+a "privileged process".  Commonly the user name `root' is associated
+with user ID 0, but there may be other user names with this ID.
+
+
+File: libc.info,  Node: Why Change Persona,  Next: How Change Persona,  Prev: Process Persona,  Up: Users and Groups
+
+Why Change the Persona of a Process?
+====================================
+
+   The most obvious situation where it is necessary for a process to
+change its user and/or group IDs is the `login' program.  When `login'
+starts running, its user ID is `root'.  Its job is to start a shell
+whose user and group IDs are those of the user who is logging in.  (To
+accomplish this fully, `login' must set the real user and group IDs as
+well as its persona.  But this is a special case.)
+
+   The more common case of changing persona is when an ordinary user
+program needs access to a resource that wouldn't ordinarily be
+accessible to the user actually running it.
+
+   For example, you may have a file that is controlled by your program
+but that shouldn't be read or modified directly by other users, either
+because it implements some kind of locking protocol, or because you want
+to preserve the integrity or privacy of the information it contains.
+This kind of restricted access can be implemented by having the program
+change its effective user or group ID to match that of the resource.
+
+   Thus, imagine a game program that saves scores in a file.  The game
+program itself needs to be able to update this file no matter who is
+running it, but if users can write the file without going through the
+game, they can give themselves any scores they like.  Some people
+consider this undesirable, or even reprehensible.  It can be prevented
+by creating a new user ID and login name (say, `games') to own the
+scores file, and make the file writable only by this user.  Then, when
+the game program wants to update this file, it can change its effective
+user ID to be that for `games'.  In effect, the program must adopt the
+persona of `games' so it can write the scores file.
+
+
+File: libc.info,  Node: How Change Persona,  Next: Reading Persona,  Prev: Why Change Persona,  Up: Users and Groups
+
+How an Application Can Change Persona
+=====================================
+
+   The ability to change the persona of a process can be a source of
+unintentional privacy violations, or even intentional abuse.  Because of
+the potential for problems, changing persona is restricted to special
+circumstances.
+
+   You can't arbitrarily set your user ID or group ID to anything you
+want; only privileged processes can do that.  Instead, the normal way
+for a program to change its persona is that it has been set up in
+advance to change to a particular user or group.  This is the function
+of the setuid and setgid bits of a file's access mode.  *Note
+Permission Bits::.
+
+   When the setuid bit of an executable file is on, executing that file
+gives the process a third user ID: the "file user ID".  This ID is set
+to the owner ID of the file.  The system then changes the effective
+user ID to the file user ID.  The real user ID remains as it was.
+Likewise, if the setgid bit is on, the process is given a "file group
+ID" equal to the group ID of the file, and its effective group ID is
+changed to the file group ID.
+
+   If a process has a file ID (user or group), then it can at any time
+change its effective ID to its real ID and back to its file ID.
+Programs use this feature to relinquish their special privileges except
+when they actually need them.  This makes it less likely that they can
+be tricked into doing something inappropriate with their privileges.
+
+   *Portability Note:* Older systems do not have file IDs.  To
+determine if a system has this feature, you can test the compiler
+define `_POSIX_SAVED_IDS'.  (In the POSIX standard, file IDs are known
+as saved IDs.)
+
+   *Note File Attributes::, for a more general discussion of file modes
+and accessibility.
+
+
+File: libc.info,  Node: Reading Persona,  Next: Setting User ID,  Prev: How Change Persona,  Up: Users and Groups
+
+Reading the Persona of a Process
+================================
+
+   Here are detailed descriptions of the functions for reading the user
+and group IDs of a process, both real and effective.  To use these
+facilities, you must include the header files `sys/types.h' and
+`unistd.h'.
+
+ - Data Type: uid_t
+     This is an integer data type used to represent user IDs.  In the
+     GNU library, this is an alias for `unsigned int'.
+
+ - Data Type: gid_t
+     This is an integer data type used to represent group IDs.  In the
+     GNU library, this is an alias for `unsigned int'.
+
+ - Function: uid_t getuid (void)
+     The `getuid' function returns the real user ID of the process.
+
+ - Function: gid_t getgid (void)
+     The `getgid' function returns the real group ID of the process.
+
+ - Function: uid_t geteuid (void)
+     The `geteuid' function returns the effective user ID of the
+     process.
+
+ - Function: gid_t getegid (void)
+     The `getegid' function returns the effective group ID of the
+     process.
+
+ - Function: int getgroups (int COUNT, gid_t *GROUPS)
+     The `getgroups' function is used to inquire about the supplementary
+     group IDs of the process.  Up to COUNT of these group IDs are
+     stored in the array GROUPS; the return value from the function is
+     the number of group IDs actually stored.  If COUNT is smaller than
+     the total number of supplementary group IDs, then `getgroups'
+     returns a value of `-1' and `errno' is set to `EINVAL'.
+
+     If COUNT is zero, then `getgroups' just returns the total number
+     of supplementary group IDs.  On systems that do not support
+     supplementary groups, this will always be zero.
+
+     Here's how to use `getgroups' to read all the supplementary group
+     IDs:
+
+          gid_t *
+          read_all_groups (void)
+          {
+            int ngroups = getgroups (0, NULL);
+            gid_t *groups
+              = (gid_t *) xmalloc (ngroups * sizeof (gid_t));
+            int val = getgroups (ngroups, groups);
+            if (val < 0)
+              {
+                free (groups);
+                return NULL;
+              }
+            return groups;
+          }
+
+
+File: libc.info,  Node: Setting User ID,  Next: Setting Groups,  Prev: Reading Persona,  Up: Users and Groups
+
+Setting the User ID
+===================
+
+   This section describes the functions for altering the user ID (real
+and/or effective) of a process.  To use these facilities, you must
+include the header files `sys/types.h' and `unistd.h'.
+
+ - Function: int seteuid (uid_t NEWEUID)
+     This function sets the effective user ID of a process to NEWUID,
+     provided that the process is allowed to change its effective user
+     ID.  A privileged process (effective user ID zero) can change its
+     effective user ID to any legal value.  An unprivileged process
+     with a file user ID can change its effective user ID to its real
+     user ID or to its file user ID.  Otherwise, a process may not
+     change its effective user ID at all.
+
+     The `seteuid' function returns a value of `0' to indicate
+     successful completion, and a value of `-1' to indicate an error.
+     The following `errno' error conditions are defined for this
+     function:
+
+    `EINVAL'
+          The value of the NEWUID argument is invalid.
+
+    `EPERM'
+          The process may not change to the specified ID.
+
+     Older systems (those without the `_POSIX_SAVED_IDS' feature) do not
+     have this function.
+
+ - Function: int setuid (uid_t NEWUID)
+     If the calling process is privileged, this function sets both the
+     real and effective user ID of the process to NEWUID.  It also
+     deletes the file user ID of the process, if any.  NEWUID may be any
+     legal value.  (Once this has been done, there is no way to recover
+     the old effective user ID.)
+
+     If the process is not privileged, and the system supports the
+     `_POSIX_SAVED_IDS' feature, then this function behaves like
+     `seteuid'.
+
+     The return values and error conditions are the same as for
+     `seteuid'.
+
+ - Function: int setreuid (uid_t RUID, uid_t EUID)
+     This function sets the real user ID of the process to RUID and the
+     effective user ID to EUID.  If RUID is `-1', it means not to
+     change the real user ID; likewise if EUID is `-1', it means not to
+     change the effective user ID.
+
+     The `setreuid' function exists for compatibility with 4.3 BSD Unix,
+     which does not support file IDs.  You can use this function to
+     swap the effective and real user IDs of the process.  (Privileged
+     processes are not limited to this particular usage.)  If file IDs
+     are supported, you should use that feature instead of this
+     function.  *Note Enable/Disable Setuid::.
+
+     The return value is `0' on success and `-1' on failure.  The
+     following `errno' error conditions are defined for this function:
+
+    `EPERM'
+          The process does not have the appropriate privileges; you do
+          not have permission to change to the specified ID.
+
+
+File: libc.info,  Node: Setting Groups,  Next: Enable/Disable Setuid,  Prev: Setting User ID,  Up: Users and Groups
+
+Setting the Group IDs
+=====================
+
+   This section describes the functions for altering the group IDs (real
+and effective) of a process.  To use these facilities, you must include
+the header files `sys/types.h' and `unistd.h'.
+
+ - Function: int setegid (gid_t NEWGID)
+     This function sets the effective group ID of the process to
+     NEWGID, provided that the process is allowed to change its group
+     ID.  Just as with `seteuid', if the process is privileged it may
+     change its effective group ID to any value; if it isn't, but it
+     has a file group ID, then it may change to its real group ID or
+     file group ID; otherwise it may not change its effective group ID.
+
+     Note that a process is only privileged if its effective *user* ID
+     is zero.  The effective group ID only affects access permissions.
+
+     The return values and error conditions for `setegid' are the same
+     as those for `seteuid'.
+
+     This function is only present if `_POSIX_SAVED_IDS' is defined.
+
+ - Function: int setgid (gid_t NEWGID)
+     This function sets both the real and effective group ID of the
+     process to NEWGID, provided that the process is privileged.  It
+     also deletes the file group ID, if any.
+
+     If the process is not privileged, then `setgid' behaves like
+     `setegid'.
+
+     The return values and error conditions for `setgid' are the same
+     as those for `seteuid'.
+
+ - Function: int setregid (gid_t RGID, gid_t EGID)
+     This function sets the real group ID of the process to RGID and
+     the effective group ID to EGID.  If RGID is `-1', it means not to
+     change the real group ID; likewise if EGID is `-1', it means not
+     to change the effective group ID.
+
+     The `setregid' function is provided for compatibility with 4.3 BSD
+     Unix, which does not support file IDs.  You can use this function
+     to swap the effective and real group IDs of the process.
+     (Privileged processes are not limited to this usage.)  If file IDs
+     are supported, you should use that feature instead of using this
+     function.  *Note Enable/Disable Setuid::.
+
+     The return values and error conditions for `setregid' are the same
+     as those for `setreuid'.
+
+   `setuid' and `setgid' behave differently depending on whether the
+effective user ID at the time is zero.  If it is not zero, they behave
+like `seteuid' and `setegid'.  If it is, they change both effective and
+real IDs and delete the file ID.  To avoid confusion, we recommend you
+always use `seteuid' and `setegid' except when you know the effective
+user ID is zero and your intent is to change the persona permanently.
+This case is rare--most of the programs that need it, such as `login'
+and `su', have already been written.
+
+   Note that if your program is setuid to some user other than `root',
+there is no way to drop privileges permanently.
+
+   The system also lets privileged processes change their supplementary
+group IDs.  To use `setgroups' or `initgroups', your programs should
+include the header file `grp.h'.
+
+ - Function: int setgroups (size_t COUNT, gid_t *GROUPS)
+     This function sets the process's supplementary group IDs.  It can
+     only be called from privileged processes.  The COUNT argument
+     specifies the number of group IDs in the array GROUPS.
+
+     This function returns `0' if successful and `-1' on error.  The
+     following `errno' error conditions are defined for this function:
+
+    `EPERM'
+          The calling process is not privileged.
+
+ - Function: int initgroups (const char *USER, gid_t GID)
+     The `initgroups' function sets the process's supplementary group
+     IDs to be the normal default for the user name USER. If GID is not
+     -1, it includes that group also.
+
+     This function works by scanning the group database for all the
+     groups USER belongs to.  It then calls `setgroups' with the list it
+     has constructed.
+
+     The return values and error conditions are the same as for
+     `setgroups'.
+
+
+File: libc.info,  Node: Enable/Disable Setuid,  Next: Setuid Program Example,  Prev: Setting Groups,  Up: Users and Groups
+
+Enabling and Disabling Setuid Access
+====================================
+
+   A typical setuid program does not need its special access all of the
+time.  It's a good idea to turn off this access when it isn't needed,
+so it can't possibly give unintended access.
+
+   If the system supports the `_POSIX_SAVED_IDS' feature, you can
+accomplish this with `seteuid'.  When the game program starts, its real
+user ID is `jdoe', its effective user ID is `games', and its saved user
+ID is also `games'.  The program should record both user ID values once
+at the beginning, like this:
+
+     user_user_id = getuid ();
+     game_user_id = geteuid ();
+
+   Then it can turn off game file access with
+
+     seteuid (user_user_id);
+
+and turn it on with
+
+     seteuid (game_user_id);
+
+Throughout this process, the real user ID remains `jdoe' and the file
+user ID remains `games', so the program can always set its effective
+user ID to either one.
+
+   On other systems that don't support file user IDs, you can turn
+setuid access on and off by using `setreuid' to swap the real and
+effective user IDs of the process, as follows:
+
+     setreuid (geteuid (), getuid ());
+
+This special case is always allowed--it cannot fail.
+
+   Why does this have the effect of toggling the setuid access?
+Suppose a game program has just started, and its real user ID is `jdoe'
+while its effective user ID is `games'.  In this state, the game can
+write the scores file.  If it swaps the two uids, the real becomes
+`games' and the effective becomes `jdoe'; now the program has only
+`jdoe' access.  Another swap brings `games' back to the effective user
+ID and restores access to the scores file.
+
+   In order to handle both kinds of systems, test for the saved user ID
+feature with a preprocessor conditional, like this:
+
+     #ifdef _POSIX_SAVED_IDS
+       setuid (user_user_id);
+     #else
+       setreuid (geteuid (), getuid ());
+     #endif
+
+
+File: libc.info,  Node: Setuid Program Example,  Next: Tips for Setuid,  Prev: Enable/Disable Setuid,  Up: Users and Groups
+
+Setuid Program Example
+======================
+
+   Here's an example showing how to set up a program that changes its
+effective user ID.
+
+   This is part of a game program called `caber-toss' that manipulates
+a file `scores' that should be writable only by the game program
+itself.  The program assumes that its executable file will be installed
+with the setuid bit set and owned by the same user as the `scores'
+file.  Typically, a system administrator will set up an account like
+`games' for this purpose.
+
+   The executable file is given mode `4755', so that doing an `ls -l'
+on it produces output like:
+
+     -rwsr-xr-x   1 games    184422 Jul 30 15:17 caber-toss
+
+The setuid bit shows up in the file modes as the `s'.
+
+   The scores file is given mode `644', and doing an `ls -l' on it
+shows:
+
+     -rw-r--r--  1 games           0 Jul 31 15:33 scores
+
+   Here are the parts of the program that show how to set up the changed
+user ID.  This program is conditionalized so that it makes use of the
+file IDs feature if it is supported, and otherwise uses `setreuid' to
+swap the effective and real user IDs.
+
+     #include <stdio.h>
+     #include <sys/types.h>
+     #include <unistd.h>
+     #include <stdlib.h>
+     
+     
+     /* Remember the effective and real UIDs. */
+     
+     static uid_t euid, ruid;
+     
+     
+     /* Restore the effective UID to its original value. */
+     
+     void
+     do_setuid (void)
+     {
+       int status;
+     
+     #ifdef _POSIX_SAVED_IDS
+       status = seteuid (euid);
+     #else
+       status = setreuid (ruid, euid);
+     #endif
+       if (status < 0) {
+         fprintf (stderr, "Couldn't set uid.\n");
+         exit (status);
+         }
+     }
+     /* Set the effective UID to the real UID. */
+     
+     void
+     undo_setuid (void)
+     {
+       int status;
+     
+     #ifdef _POSIX_SAVED_IDS
+       status = seteuid (ruid);
+     #else
+       status = setreuid (euid, ruid);
+     #endif
+       if (status < 0) {
+         fprintf (stderr, "Couldn't set uid.\n");
+         exit (status);
+         }
+     }
+     
+     /* Main program. */
+     
+     int
+     main (void)
+     {
+       /* Remember the real and effective user IDs.  */
+       ruid = getuid ();
+       euid = geteuid ();
+       undo_setuid ();
+     
+       /* Do the game and record the score.  */
+       ...
+     }
+
+   Notice how the first thing the `main' function does is to set the
+effective user ID back to the real user ID.  This is so that any other
+file accesses that are performed while the user is playing the game use
+the real user ID for determining permissions.  Only when the program
+needs to open the scores file does it switch back to the file user ID,
+like this:
+
+     /* Record the score. */
+     
+     int
+     record_score (int score)
+     {
+       FILE *stream;
+       char *myname;
+     
+       /* Open the scores file. */
+       do_setuid ();
+       stream = fopen (SCORES_FILE, "a");
+       undo_setuid ();
+     /* Write the score to the file. */
+       if (stream)
+         {
+           myname = cuserid (NULL);
+           if (score < 0)
+             fprintf (stream, "%10s: Couldn't lift the caber.\n", myname);
+           else
+             fprintf (stream, "%10s: %d feet.\n", myname, score);
+           fclose (stream);
+           return 0;
+         }
+       else
+         return -1;
+     }
+
+
+File: libc.info,  Node: Tips for Setuid,  Next: Who Logged In,  Prev: Setuid Program Example,  Up: Users and Groups
+
+Tips for Writing Setuid Programs
+================================
+
+   It is easy for setuid programs to give the user access that isn't
+intended--in fact, if you want to avoid this, you need to be careful.
+Here are some guidelines for preventing unintended access and
+minimizing its consequences when it does occur:
+
+   * Don't have `setuid' programs with privileged user IDs such as
+     `root' unless it is absolutely necessary.  If the resource is
+     specific to your particular program, it's better to define a new,
+     nonprivileged user ID or group ID just to manage that resource.
+     It's better if you can write your program to use a special group
+     than a special user.
+
+   * Be cautious about using the `exec' functions in combination with
+     changing the effective user ID.  Don't let users of your program
+     execute arbitrary programs under a changed user ID.  Executing a
+     shell is especially bad news. Less obviously, the `execlp' and
+     `execvp' functions are a potential risk (since the program they
+     execute depends on the user's `PATH' environment variable).
+
+     If you must `exec' another program under a changed ID, specify an
+     absolute file name (*note File Name Resolution::.) for the
+     executable, and make sure that the protections on that executable
+     and *all* containing directories are such that ordinary users
+     cannot replace it with some other program.
+
+     You should also check the arguments passed to the program to make
+     sure they do not have unexpected effects.  Likewise, you should
+     examine the environment variables.  Decide which arguments and
+     variables are safe, and reject all others.
+
+     You should never use `system' in a privileged program, because it
+     invokes a shell.
+
+   * Only use the user ID controlling the resource in the part of the
+     program that actually uses that resource.  When you're finished
+     with it, restore the effective user ID back to the actual user's
+     user ID.  *Note Enable/Disable Setuid::.
+
+   * If the `setuid' part of your program needs to access other files
+     besides the controlled resource, it should verify that the real
+     user would ordinarily have permission to access those files.  You
+     can use the `access' function (*note Access Permission::.) to
+     check this; it uses the real user and group IDs, rather than the
+     effective IDs.
+
+
+File: libc.info,  Node: Who Logged In,  Next: User Accounting Database,  Prev: Tips for Setuid,  Up: Users and Groups
+
+Identifying Who Logged In
+=========================
+
+   You can use the functions listed in this section to determine the
+login name of the user who is running a process, and the name of the
+user who logged in the current session.  See also the function `getuid'
+and friends (*note Reading Persona::.).  How this information is
+collected by the system and how to control/add/remove information from
+the background storage is described in *Note User Accounting Database::.
+
+   The `getlogin' function is declared in `unistd.h', while `cuserid'
+and `L_cuserid' are declared in `stdio.h'.
+
+ - Function: char * getlogin (void)
+     The `getlogin' function returns a pointer to a string containing
+     the name of the user logged in on the controlling terminal of the
+     process, or a null pointer if this information cannot be
+     determined.  The string is statically allocated and might be
+     overwritten on subsequent calls to this function or to `cuserid'.
+
+ - Function: char * cuserid (char *STRING)
+     The `cuserid' function returns a pointer to a string containing a
+     user name associated with the effective ID of the process.  If
+     STRING is not a null pointer, it should be an array that can hold
+     at least `L_cuserid' characters; the string is returned in this
+     array.  Otherwise, a pointer to a string in a static area is
+     returned.  This string is statically allocated and might be
+     overwritten on subsequent calls to this function or to `getlogin'.
+
+     The use of this function is deprecated since it is marked to be
+     withdrawn in XPG4.2 and has already been removed from newer
+     revisions of POSIX.1.
+
+ - Macro: int L_cuserid
+     An integer constant that indicates how long an array you might
+     need to store a user name.
+
+   These functions let your program identify positively the user who is
+running or the user who logged in this session.  (These can differ when
+setuid programs are involved; see *Note Process Persona::.)  The user
+cannot do anything to fool these functions.
+
+   For most purposes, it is more useful to use the environment variable
+`LOGNAME' to find out who the user is.  This is more flexible precisely
+because the user can set `LOGNAME' arbitrarily.  *Note Standard
+Environment::.
+
+
+File: libc.info,  Node: User Accounting Database,  Next: User Database,  Prev: Who Logged In,  Up: Users and Groups
+
+The User Accounting Database
+============================
+
+   Most Unix-like operating systems keep track of logged in users by
+maintaining a user accounting database.  This user accounting database
+stores for each terminal, who has logged on, at what time, the process
+ID of the user's login shell, etc., etc., but also stores information
+about the run level of the system, the time of the last system reboot,
+and possibly more.
+
+   The user accounting database typically lives in `/etc/utmp',
+`/var/adm/utmp' or `/var/run/utmp'.  However, these files should
+*never* be accessed directly.  For reading information from and writing
+information to the user accounting database, the functions described in
+this section should be used.
+
+* Menu:
+
+* Manipulating the Database::   Scanning and modifying the user
+                                 accounting database.
+* XPG Functions::               A standardized way for doing the same thing.
+* Logging In and Out::          Functions from BSD that modify the user
+                                 accounting database.
+

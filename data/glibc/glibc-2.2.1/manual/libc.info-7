@@ -1,0 +1,1129 @@
+This is Info file libc.info, produced by Makeinfo version 1.68 from the
+input file libc.texinfo.
+
+INFO-DIR-SECTION GNU libraries
+START-INFO-DIR-ENTRY
+* Libc: (libc).                 C library.
+END-INFO-DIR-ENTRY
+
+   This file documents the GNU C library.
+
+   This is Edition 0.09 DRAFT, last updated 28 Aug 1999, of `The GNU C
+Library Reference Manual', for Version 2.2 Beta.
+
+   Copyright (C) 1993, '94, '95, '96, '97, '98, '99 Free Software
+Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "GNU Library General Public License" is
+included exactly as in the original, and provided that the entire
+resulting derived work is distributed under the terms of a permission
+notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the text of the translation of the section
+entitled "GNU Library General Public License" must be approved for
+accuracy by the Foundation.
+
+
+File: libc.info,  Node: Finding Tokens in a String,  Next: strfry,  Prev: Search Functions,  Up: String and Array Utilities
+
+Finding Tokens in a String
+==========================
+
+   It's fairly common for programs to have a need to do some simple
+kinds of lexical analysis and parsing, such as splitting a command
+string up into tokens.  You can do this with the `strtok' function,
+declared in the header file `string.h'.
+
+ - Function: char * strtok (char *NEWSTRING, const char *DELIMITERS)
+     A string can be split into tokens by making a series of calls to
+     the function `strtok'.
+
+     The string to be split up is passed as the NEWSTRING argument on
+     the first call only.  The `strtok' function uses this to set up
+     some internal state information.  Subsequent calls to get
+     additional tokens from the same string are indicated by passing a
+     null pointer as the NEWSTRING argument.  Calling `strtok' with
+     another non-null NEWSTRING argument reinitializes the state
+     information.  It is guaranteed that no other library function ever
+     calls `strtok' behind your back (which would mess up this internal
+     state information).
+
+     The DELIMITERS argument is a string that specifies a set of
+     delimiters that may surround the token being extracted.  All the
+     initial characters that are members of this set are discarded.
+     The first character that is *not* a member of this set of
+     delimiters marks the beginning of the next token.  The end of the
+     token is found by looking for the next character that is a member
+     of the delimiter set.  This character in the original string
+     NEWSTRING is overwritten by a null character, and the pointer to
+     the beginning of the token in NEWSTRING is returned.
+
+     On the next call to `strtok', the searching begins at the next
+     character beyond the one that marked the end of the previous token.
+     Note that the set of delimiters DELIMITERS do not have to be the
+     same on every call in a series of calls to `strtok'.
+
+     If the end of the string NEWSTRING is reached, or if the remainder
+     of string consists only of delimiter characters, `strtok' returns
+     a null pointer.
+
+   *Warning:* Since `strtok' alters the string it is parsing, you
+should always copy the string to a temporary buffer before parsing it
+with `strtok'.  If you allow `strtok' to modify a string that came from
+another part of your program, you are asking for trouble; that string
+might be used for other purposes after `strtok' has modified it, and it
+would not have the expected value.
+
+   The string that you are operating on might even be a constant.  Then
+when `strtok' tries to modify it, your program will get a fatal signal
+for writing in read-only memory.  *Note Program Error Signals::.  Even
+if the operation of `strtok' would not require a modification of the
+string (e.g., if there is exactly one token) the string can (and in the
+GNU libc case will) be modified.
+
+   This is a special case of a general principle: if a part of a program
+does not have as its purpose the modification of a certain data
+structure, then it is error-prone to modify the data structure
+temporarily.
+
+   The function `strtok' is not reentrant.  *Note Nonreentrancy::, for
+a discussion of where and why reentrancy is important.
+
+   Here is a simple example showing the use of `strtok'.
+
+     #include <string.h>
+     #include <stddef.h>
+     
+     ...
+     
+     const char string[] = "words separated by spaces -- and, punctuation!";
+     const char delimiters[] = " .,;:!-";
+     char *token, *cp;
+     
+     ...
+     
+     cp = strdupa (string);                /* Make writable copy.  */
+     token = strtok (cp, delimiters);      /* token => "words" */
+     token = strtok (NULL, delimiters);    /* token => "separated" */
+     token = strtok (NULL, delimiters);    /* token => "by" */
+     token = strtok (NULL, delimiters);    /* token => "spaces" */
+     token = strtok (NULL, delimiters);    /* token => "and" */
+     token = strtok (NULL, delimiters);    /* token => "punctuation" */
+     token = strtok (NULL, delimiters);    /* token => NULL */
+
+   The GNU C library contains two more functions for tokenizing a string
+which overcome the limitation of non-reentrancy.
+
+ - Function: char * strtok_r (char *NEWSTRING, const char *DELIMITERS,
+          char **SAVE_PTR)
+     Just like `strtok', this function splits the string into several
+     tokens which can be accessed by successive calls to `strtok_r'.
+     The difference is that the information about the next token is
+     stored in the space pointed to by the third argument, SAVE_PTR,
+     which is a pointer to a string pointer.  Calling `strtok_r' with a
+     null pointer for NEWSTRING and leaving SAVE_PTR between the calls
+     unchanged does the job without hindering reentrancy.
+
+     This function is defined in POSIX.1 and can be found on many
+     systems which support multi-threading.
+
+ - Function: char * strsep (char **STRING_PTR, const char *DELIMITER)
+     This function has a similar functionality as `strtok_r' with the
+     NEWSTRING argument replaced by the SAVE_PTR argument.  The
+     initialization of the moving pointer has to be done by the user.
+     Successive calls to `strsep' move the pointer along the tokens
+     separated by DELIMITER, returning the address of the next token
+     and updating STRING_PTR to point to the beginning of the next
+     token.
+
+     One difference between `strsep' and `strtok_r' is that if the
+     input string contains more than one character from DELIMITER in a
+     row `strsep' returns an empty string for each pair of characters
+     from DELIMITER.  This means that a program normally should test
+     for `strsep' returning an empty string before processing it.
+
+     This function was introduced in 4.3BSD and therefore is widely
+     available.
+
+   Here is how the above example looks like when `strsep' is used.
+
+     #include <string.h>
+     #include <stddef.h>
+     
+     ...
+     
+     const char string[] = "words separated by spaces -- and, punctuation!";
+     const char delimiters[] = " .,;:!-";
+     char *running;
+     char *token;
+     
+     ...
+     
+     running = strdupa (string);
+     token = strsep (&running, delimiters);    /* token => "words" */
+     token = strsep (&running, delimiters);    /* token => "separated" */
+     token = strsep (&running, delimiters);    /* token => "by" */
+     token = strsep (&running, delimiters);    /* token => "spaces" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => "and" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => "punctuation" */
+     token = strsep (&running, delimiters);    /* token => "" */
+     token = strsep (&running, delimiters);    /* token => NULL */
+
+ - Function: char * basename (const char *FILENAME)
+     The GNU version of the `basename' function returns the last
+     component of the path in FILENAME.  This function is the prefered
+     usage, since it does not modify the argument, FILENAME, and
+     respects trailing slashes.  The prototype for `basename' can be
+     found in `string.h'.  Note, this function is overriden by the XPG
+     version, if `libgen.h' is included.
+
+     Example of using GNU `basename':
+
+          #include <string.h>
+          
+          int
+          main (int argc, char *argv[])
+          {
+            char *prog = basename (argv[0]);
+          
+            if (argc < 2)
+              {
+                fprintf (stderr, "Usage %s <arg>\n", prog);
+                exit (1);
+              }
+          
+            ...
+          }
+
+     *Portability Note:* This function may produce different results on
+     different systems.
+
+
+ - Function: char * basename (char *PATH)
+     This is the standard XPG defined `basename'. It is similar in
+     spirit to the GNU version, but may modify the PATH by removing
+     trailing '/' characters.  If the PATH is made up entirely of '/'
+     characters, then "/" will be returned.  Also, if PATH is `NULL' or
+     an empty string, then "." is returned.  The prototype for the XPG
+     version can be found in `libgen.h'.
+
+     Example of using XPG `basename':
+
+          #include <libgen.h>
+          
+          int
+          main (int argc, char *argv[])
+          {
+            char *prog;
+            char *path = strdupa (argv[0]);
+          
+            prog = basename (path);
+          
+            if (argc < 2)
+              {
+                fprintf (stderr, "Usage %s <arg>\n", prog);
+                exit (1);
+              }
+          
+            ...
+          
+          }
+
+ - Function: char * dirname (char *PATH)
+     The `dirname' function is the compliment to the XPG version of
+     `basename'.  It returns the parent directory of the file specified
+     by PATH.  If PATH is `NULL', an empty string, or contains no '/'
+     characters, then "." is returned.  The prototype for this function
+     can be found in `libgen.h'.
+
+
+File: libc.info,  Node: strfry,  Next: Trivial Encryption,  Prev: Finding Tokens in a String,  Up: String and Array Utilities
+
+strfry
+======
+
+   The function below addresses the perennial programming quandary:
+"How do I take good data in string form and painlessly turn it into
+garbage?"  This is actually a fairly simple task for C programmers who
+do not use the GNU C library string functions, but for programs based
+on the GNU C library, the `strfry' function is the preferred method for
+destroying string data.
+
+   The prototype for this function is in `string.h'.
+
+ - Function: char * strfry (char *STRING)
+     `strfry' creates a pseudorandom anagram of a string, replacing the
+     input with the anagram in place.  For each position in the string,
+     `strfry' swaps it with a position in the string selected at random
+     (from a uniform distribution).  The two positions may be the same.
+
+     The return value of `strfry' is always STRING.
+
+     *Portability Note:*  This function is unique to the GNU C library.
+
+
+
+File: libc.info,  Node: Trivial Encryption,  Next: Encode Binary Data,  Prev: strfry,  Up: String and Array Utilities
+
+Trivial Encryption
+==================
+
+   The `memfrob' function converts an array of data to something
+unrecognizable and back again.  It is not encryption in its usual sense
+since it is easy for someone to convert the encrypted data back to clear
+text.  The transformation is analogous to Usenet's "Rot13" encryption
+method for obscuring offensive jokes from sensitive eyes and such.
+Unlike Rot13, `memfrob' works on arbitrary binary data, not just text.
+
+   For true encryption, *Note Cryptographic Functions::.
+
+   This function is declared in `string.h'.
+
+ - Function: void * memfrob (void *MEM, size_t LENGTH)
+     `memfrob' transforms (frobnicates) each byte of the data structure
+     at MEM, which is LENGTH bytes long, by bitwise exclusive oring it
+     with binary 00101010.  It does the transformation in place and its
+     return value is always MEM.
+
+     Note that `memfrob' a second time on the same data structure
+     returns it to its original state.
+
+     This is a good function for hiding information from someone who
+     doesn't want to see it or doesn't want to see it very much.  To
+     really prevent people from retrieving the information, use
+     stronger encryption such as that described in *Note Cryptographic
+     Functions::.
+
+     *Portability Note:*  This function is unique to the GNU C library.
+
+
+
+File: libc.info,  Node: Encode Binary Data,  Next: Argz and Envz Vectors,  Prev: Trivial Encryption,  Up: String and Array Utilities
+
+Encode Binary Data
+==================
+
+   To store or transfer binary data in environments which only support
+text one has to encode the binary data by mapping the input bytes to
+characters in the range allowed for storing or transfering.  SVID
+systems (and nowadays XPG compliant systems) provide minimal support for
+this task.
+
+ - Function: char * l64a (long int N)
+     This function encodes a 32-bit input value using characters from
+     the basic character set.  It returns a pointer to a 6 character
+     buffer which contains an encoded version of N.  To encode a series
+     of bytes the user must copy the returned string to a destination
+     buffer.  It returns the empty string if N is zero, which is
+     somewhat bizarre but mandated by the standard.
+     *Warning:* Since a static buffer is used this function should not
+     be used in multi-threaded programs.  There is no thread-safe
+     alternative to this function in the C library.
+     *Compatibility Note:* The XPG standard states that the return
+     value of `l64a' is undefined if N is negative.  In the GNU
+     implementation, `l64a' treats its argument as unsigned, so it will
+     return a sensible encoding for any nonzero N; however, portable
+     programs should not rely on this.
+
+     To encode a large buffer `l64a' must be called in a loop, once for
+     each 32-bit word of the buffer.  For example, one could do
+     something like this:
+
+          char *
+          encode (const void *buf, size_t len)
+          {
+            /* We know in advance how long the buffer has to be. */
+            unsigned char *in = (unsigned char *) buf;
+            char *out = malloc (6 + ((len + 3) / 4) * 6 + 1);
+            char *cp = out;
+          
+            /* Encode the length. */
+            /* Using `htonl' is necessary so that the data can be
+               decoded even on machines with different byte order. */
+          
+            cp = mempcpy (cp, l64a (htonl (len)), 6);
+          
+            while (len > 3)
+              {
+                unsigned long int n = *in++;
+                n = (n << 8) | *in++;
+                n = (n << 8) | *in++;
+                n = (n << 8) | *in++;
+                len -= 4;
+                if (n)
+                  cp = mempcpy (cp, l64a (htonl (n)), 6);
+                else
+                      /* `l64a' returns the empty string for n==0, so we 
+                         must generate its encoding ("......") by hand. */
+                  cp = stpcpy (cp, "......");
+              }
+            if (len > 0)
+              {
+                unsigned long int n = *in++;
+                if (--len > 0)
+                  {
+                    n = (n << 8) | *in++;
+                    if (--len > 0)
+                      n = (n << 8) | *in;
+                  }
+                memcpy (cp, l64a (htonl (n)), 6);
+                cp += 6;
+              }
+            *cp = '\0';
+            return out;
+          }
+
+     It is strange that the library does not provide the complete
+     functionality needed but so be it.
+
+
+   To decode data produced with `l64a' the following function should be
+used.
+
+ - Function: long int a64l (const char *STRING)
+     The parameter STRING should contain a string which was produced by
+     a call to `l64a'.  The function processes at least 6 characters of
+     this string, and decodes the characters it finds according to the
+     table below.  It stops decoding when it finds a character not in
+     the table, rather like `atoi'; if you have a buffer which has been
+     broken into lines, you must be careful to skip over the
+     end-of-line characters.
+
+     The decoded number is returned as a `long int' value.
+
+   The `l64a' and `a64l' functions use a base 64 encoding, in which
+each character of an encoded string represents six bits of an input
+word.  These symbols are used for the base 64 digits:
+
+       0    1    2    3    4    5    6    7    
+0      `.'  `/'  `0'  `1'  `2'  `3'  `4'  `5'  
+8      `6'  `7'  `8'  `9'  `A'  `B'  `C'  `D'  
+16     `E'  `F'  `G'  `H'  `I'  `J'  `K'  `L'  
+24     `M'  `N'  `O'  `P'  `Q'  `R'  `S'  `T'  
+32     `U'  `V'  `W'  `X'  `Y'  `Z'  `a'  `b'  
+40     `c'  `d'  `e'  `f'  `g'  `h'  `i'  `j'  
+48     `k'  `l'  `m'  `n'  `o'  `p'  `q'  `r'  
+56     `s'  `t'  `u'  `v'  `w'  `x'  `y'  `z'  
+
+   This encoding scheme is not standard.  There are some other encoding
+methods which are much more widely used (UU encoding, MIME encoding).
+Generally, it is better to use one of these encodings.
+
+
+File: libc.info,  Node: Argz and Envz Vectors,  Prev: Encode Binary Data,  Up: String and Array Utilities
+
+Argz and Envz Vectors
+=====================
+
+   "argz vectors" are vectors of strings in a contiguous block of
+memory, each element separated from its neighbors by null-characters
+(`'\0'').
+
+   "Envz vectors" are an extension of argz vectors where each element
+is a name-value pair, separated by a `'='' character (as in a Unix
+environment).
+
+* Menu:
+
+* Argz Functions::              Operations on argz vectors.
+* Envz Functions::              Additional operations on environment vectors.
+
+
+File: libc.info,  Node: Argz Functions,  Next: Envz Functions,  Up: Argz and Envz Vectors
+
+Argz Functions
+--------------
+
+   Each argz vector is represented by a pointer to the first element, of
+type `char *', and a size, of type `size_t', both of which can be
+initialized to `0' to represent an empty argz vector.  All argz
+functions accept either a pointer and a size argument, or pointers to
+them, if they will be modified.
+
+   The argz functions use `malloc'/`realloc' to allocate/grow argz
+vectors, and so any argz vector creating using these functions may be
+freed by using `free'; conversely, any argz function that may grow a
+string expects that string to have been allocated using `malloc' (those
+argz functions that only examine their arguments or modify them in
+place will work on any sort of memory).  *Note Unconstrained
+Allocation::.
+
+   All argz functions that do memory allocation have a return type of
+`error_t', and return `0' for success, and `ENOMEM' if an allocation
+error occurs.
+
+   These functions are declared in the standard include file `argz.h'.
+
+ - Function: error_t argz_create (char *const ARGV[], char **ARGZ,
+          size_t *ARGZ_LEN)
+     The `argz_create' function converts the Unix-style argument vector
+     ARGV (a vector of pointers to normal C strings, terminated by
+     `(char *)0'; *note Program Arguments::.) into an argz vector with
+     the same elements, which is returned in ARGZ and ARGZ_LEN.
+
+ - Function: error_t argz_create_sep (const char *STRING, int SEP, char
+          **ARGZ, size_t *ARGZ_LEN)
+     The `argz_create_sep' function converts the null-terminated string
+     STRING into an argz vector (returned in ARGZ and ARGZ_LEN) by
+     splitting it into elements at every occurrence of the character
+     SEP.
+
+ - Function: size_t argz_count (const char *ARGZ, size_t ARG_LEN)
+     Returns the number of elements in the argz vector ARGZ and
+     ARGZ_LEN.
+
+ - Function: void argz_extract (char *ARGZ, size_t ARGZ_LEN, char
+          **ARGV)
+     The `argz_extract' function converts the argz vector ARGZ and
+     ARGZ_LEN into a Unix-style argument vector stored in ARGV, by
+     putting pointers to every element in ARGZ into successive
+     positions in ARGV, followed by a terminator of `0'.  ARGV must be
+     pre-allocated with enough space to hold all the elements in ARGZ
+     plus the terminating `(char *)0' (`(argz_count (ARGZ, ARGZ_LEN) +
+     1) * sizeof (char *)' bytes should be enough).  Note that the
+     string pointers stored into ARGV point into ARGZ--they are not
+     copies--and so ARGZ must be copied if it will be changed while
+     ARGV is still active.  This function is useful for passing the
+     elements in ARGZ to an exec function (*note Executing a File::.).
+
+ - Function: void argz_stringify (char *ARGZ, size_t LEN, int SEP)
+     The `argz_stringify' converts ARGZ into a normal string with the
+     elements separated by the character SEP, by replacing each `'\0''
+     inside ARGZ (except the last one, which terminates the string)
+     with SEP.  This is handy for printing ARGZ in a readable manner.
+
+ - Function: error_t argz_add (char **ARGZ, size_t *ARGZ_LEN, const
+          char *STR)
+     The `argz_add' function adds the string STR to the end of the argz
+     vector `*ARGZ', and updates `*ARGZ' and `*ARGZ_LEN' accordingly.
+
+ - Function: error_t argz_add_sep (char **ARGZ, size_t *ARGZ_LEN, const
+          char *STR, int DELIM)
+     The `argz_add_sep' function is similar to `argz_add', but STR is
+     split into separate elements in the result at occurrences of the
+     character DELIM.  This is useful, for instance, for adding the
+     components of a Unix search path to an argz vector, by using a
+     value of `':'' for DELIM.
+
+ - Function: error_t argz_append (char **ARGZ, size_t *ARGZ_LEN, const
+          char *BUF, size_t BUF_LEN)
+     The `argz_append' function appends BUF_LEN bytes starting at BUF
+     to the argz vector `*ARGZ', reallocating `*ARGZ' to accommodate
+     it, and adding BUF_LEN to `*ARGZ_LEN'.
+
+ - Function: error_t argz_delete (char **ARGZ, size_t *ARGZ_LEN, char
+          *ENTRY)
+     If ENTRY points to the beginning of one of the elements in the
+     argz vector `*ARGZ', the `argz_delete' function will remove this
+     entry and reallocate `*ARGZ', modifying `*ARGZ' and `*ARGZ_LEN'
+     accordingly.  Note that as destructive argz functions usually
+     reallocate their argz argument, pointers into argz vectors such as
+     ENTRY will then become invalid.
+
+ - Function: error_t argz_insert (char **ARGZ, size_t *ARGZ_LEN, char
+          *BEFORE, const char *ENTRY)
+     The `argz_insert' function inserts the string ENTRY into the argz
+     vector `*ARGZ' at a point just before the existing element pointed
+     to by BEFORE, reallocating `*ARGZ' and updating `*ARGZ' and
+     `*ARGZ_LEN'.  If BEFORE is `0', ENTRY is added to the end instead
+     (as if by `argz_add').  Since the first element is in fact the
+     same as `*ARGZ', passing in `*ARGZ' as the value of BEFORE will
+     result in ENTRY being inserted at the beginning.
+
+ - Function: char * argz_next (char *ARGZ, size_t ARGZ_LEN, const char
+          *ENTRY)
+     The `argz_next' function provides a convenient way of iterating
+     over the elements in the argz vector ARGZ.  It returns a pointer
+     to the next element in ARGZ after the element ENTRY, or `0' if
+     there are no elements following ENTRY.  If ENTRY is `0', the first
+     element of ARGZ is returned.
+
+     This behavior suggests two styles of iteration:
+
+              char *entry = 0;
+              while ((entry = argz_next (ARGZ, ARGZ_LEN, entry)))
+                ACTION;
+
+     (the double parentheses are necessary to make some C compilers
+     shut up about what they consider a questionable `while'-test) and:
+
+              char *entry;
+              for (entry = ARGZ;
+                   entry;
+                   entry = argz_next (ARGZ, ARGZ_LEN, entry))
+                ACTION;
+
+     Note that the latter depends on ARGZ having a value of `0' if it
+     is empty (rather than a pointer to an empty block of memory); this
+     invariant is maintained for argz vectors created by the functions
+     here.
+
+ - Function: error_t argz_replace (char **ARGZ, size_t *ARGZ_LEN,
+          const char *STR, const char *WITH, unsigned *REPLACE_COUNT)
+     Replace any occurrences of the string STR in ARGZ with WITH,
+     reallocating ARGZ as necessary.  If REPLACE_COUNT is non-zero,
+     `*REPLACE_COUNT' will be incremented by number of replacements
+     performed.
+
+
+File: libc.info,  Node: Envz Functions,  Prev: Argz Functions,  Up: Argz and Envz Vectors
+
+Envz Functions
+--------------
+
+   Envz vectors are just argz vectors with additional constraints on
+the form of each element; as such, argz functions can also be used on
+them, where it makes sense.
+
+   Each element in an envz vector is a name-value pair, separated by a
+`'='' character; if multiple `'='' characters are present in an
+element, those after the first are considered part of the value, and
+treated like all other non-`'\0'' characters.
+
+   If *no* `'='' characters are present in an element, that element is
+considered the name of a "null" entry, as distinct from an entry with an
+empty value: `envz_get' will return `0' if given the name of null
+entry, whereas an entry with an empty value would result in a value of
+`""'; `envz_entry' will still find such entries, however.  Null entries
+can be removed with `envz_strip' function.
+
+   As with argz functions, envz functions that may allocate memory (and
+thus fail) have a return type of `error_t', and return either `0' or
+`ENOMEM'.
+
+   These functions are declared in the standard include file `envz.h'.
+
+ - Function: char * envz_entry (const char *ENVZ, size_t ENVZ_LEN,
+          const char *NAME)
+     The `envz_entry' function finds the entry in ENVZ with the name
+     NAME, and returns a pointer to the whole entry--that is, the argz
+     element which begins with NAME followed by a `'='' character.  If
+     there is no entry with that name, `0' is returned.
+
+ - Function: char * envz_get (const char *ENVZ, size_t ENVZ_LEN, const
+          char *NAME)
+     The `envz_get' function finds the entry in ENVZ with the name NAME
+     (like `envz_entry'), and returns a pointer to the value portion of
+     that entry (following the `'='').  If there is no entry with that
+     name (or only a null entry), `0' is returned.
+
+ - Function: error_t envz_add (char **ENVZ, size_t *ENVZ_LEN, const
+          char *NAME, const char *VALUE)
+     The `envz_add' function adds an entry to `*ENVZ' (updating `*ENVZ'
+     and `*ENVZ_LEN') with the name NAME, and value VALUE.  If an entry
+     with the same name already exists in ENVZ, it is removed first.
+     If VALUE is `0', then the new entry will the special null type of
+     entry (mentioned above).
+
+ - Function: error_t envz_merge (char **ENVZ, size_t *ENVZ_LEN, const
+          char *ENVZ2, size_t ENVZ2_LEN, int OVERRIDE)
+     The `envz_merge' function adds each entry in ENVZ2 to ENVZ, as if
+     with `envz_add', updating `*ENVZ' and `*ENVZ_LEN'.  If OVERRIDE is
+     true, then values in ENVZ2 will supersede those with the same name
+     in ENVZ, otherwise not.
+
+     Null entries are treated just like other entries in this respect,
+     so a null entry in ENVZ can prevent an entry of the same name in
+     ENVZ2 from being added to ENVZ, if OVERRIDE is false.
+
+ - Function: void envz_strip (char **ENVZ, size_t *ENVZ_LEN)
+     The `envz_strip' function removes any null entries from ENVZ,
+     updating `*ENVZ' and `*ENVZ_LEN'.
+
+
+File: libc.info,  Node: Character Set Handling,  Next: Locales,  Prev: String and Array Utilities,  Up: Top
+
+Character Set Handling
+**********************
+
+   Character sets used in the early days of computing had only six,
+seven, or eight bits for each character: there was never a case where
+more than eight bits (one byte) were used to represent a single
+character.  The limitations of this approach became more apparent as
+more people grappled with non-Roman character sets, where not all the
+characters that make up a language's character set can be represented
+by 2^8 choices.  This chapter shows the functionality which was added
+to the C library to support multiple character sets.
+
+* Menu:
+
+* Extended Char Intro::              Introduction to Extended Characters.
+* Charset Function Overview::        Overview about Character Handling
+                                      Functions.
+* Restartable multibyte conversion:: Restartable multibyte conversion
+                                      Functions.
+* Non-reentrant Conversion::         Non-reentrant Conversion Function.
+* Generic Charset Conversion::       Generic Charset Conversion.
+
+
+File: libc.info,  Node: Extended Char Intro,  Next: Charset Function Overview,  Up: Character Set Handling
+
+Introduction to Extended Characters
+===================================
+
+   A variety of solutions to overcome the differences between character
+sets with a 1:1 relation between bytes and characters and character
+sets with ratios of 2:1 or 4:1 exist. The remainder of this section
+gives a few examples to help understand the design decisions made while
+developing the functionality of the C library.
+
+   A distinction we have to make right away is between internal and
+external representation.  "Internal representation" means the
+representation used by a program while keeping the text in memory.
+External representations are used when text is stored or transmitted
+through whatever communication channel.  Examples of external
+representations include files lying in a directory that are going to be
+read and parsed.
+
+   Traditionally there has been no difference between the two
+representations.  It was equally comfortable and useful to use the same
+single-byte representation internally and externally.  This changes
+with more and larger character sets.
+
+   One of the problems to overcome with the internal representation is
+handling text that is externally encoded using different character
+sets.  Assume a program which reads two texts and compares them using
+some metric.  The comparison can be usefully done only if the texts are
+internally kept in a common format.
+
+   For such a common format (= character set) eight bits are certainly
+no longer enough.  So the smallest entity will have to grow: "wide
+characters" will now be used.  Instead of one byte, two or four will be
+used instead.  (Three are not good to address in memory and more than
+four bytes seem not to be necessary).
+
+   As shown in some other part of this manual, there exists a
+completely new family of functions which can handle texts of this kind
+in memory.  The most commonly used character sets for such internal
+wide character representations are Unicode and ISO 10646 (also known as
+UCS for Universal Character Set). Unicode was originally planned as a
+16-bit character set, whereas ISO 10646 was designed to be a 31-bit
+large code space. The two standards are practically identical.  They
+have the same character repertoire and code table, but Unicode specifies
+added semantics.  At the moment, only characters in the first `0x10000'
+code positions (the so-called Basic Multilingual Plane, BMP) have been
+assigned, but the assignment of more specialized characters outside this
+16-bit space is already in progress. A number of encodings have been
+defined for Unicode and ISO 10646 characters: UCS-2 is a 16-bit word
+that can only represent characters from the BMP, UCS-4 is a 32-bit word
+than can represent any Unicode and ISO 10646 character, UTF-8 is an
+ASCII compatible encoding where ASCII characters are represented by
+ASCII bytes and non-ASCII characters by sequences of 2-6 non-ASCII
+bytes, and finally UTF-16 is an extension of UCS-2 in which pairs of
+certain UCS-2 words can be used to encode non-BMP characters up to
+`0x10ffff'.
+
+   To represent wide characters the `char' type is not suitable.  For
+this reason the ISO C standard introduces a new type which is designed
+to keep one character of a wide character string.  To maintain the
+similarity there is also a type corresponding to `int' for those
+functions which take a single wide character.
+
+ - Data type: wchar_t
+     This data type is used as the base type for wide character strings.
+     I.e., arrays of objects of this type are the equivalent of `char[]'
+     for multibyte character strings.  The type is defined in
+     `stddef.h'.
+
+     The ISO C90 standard, where this type was introduced, does not say
+     anything specific about the representation.  It only requires that
+     this type is capable of storing all elements of the basic
+     character set.  Therefore it would be legitimate to define
+     `wchar_t' as `char'.  This might make sense for embedded systems.
+
+     But for GNU systems this type is always 32 bits wide.  It is
+     therefore capable of representing all UCS-4 values and  therefore
+     covering all of ISO 10646.  Some Unix systems define `wchar_t' as
+     a 16-bit type and thereby follow Unicode very strictly.  This is
+     perfectly fine with the standard but it also means that to
+     represent all characters from Unicode and ISO 10646 one has to use
+     UTF-16 surrogate characters which is in fact a
+     multi-wide-character encoding.  But this contradicts the purpose
+     of the `wchar_t' type.
+
+ - Data type: wint_t
+     `wint_t' is a data type used for parameters and variables which
+     contain a single wide character.  As the name already suggests it
+     is the equivalent to `int' when using the normal `char' strings.
+     The types `wchar_t' and `wint_t' have often the same
+     representation if their size if 32 bits wide but if `wchar_t' is
+     defined as `char' the type `wint_t' must be defined as `int' due
+     to the parameter promotion.
+
+     This type is defined in `wchar.h' and got introduced in
+     Amendment 1 to ISO C90.
+
+   As there are for the `char' data type there also exist macros
+specifying the minimum and maximum value representable in an object of
+type `wchar_t'.
+
+ - Macro: wint_t WCHAR_MIN
+     The macro `WCHAR_MIN' evaluates to the minimum value representable
+     by an object of type `wint_t'.
+
+     This macro got introduced in Amendment 1 to ISO C90.
+
+ - Macro: wint_t WCHAR_MAX
+     The macro `WCHAR_MAX' evaluates to the maximum value representable
+     by an object of type `wint_t'.
+
+     This macro got introduced in Amendment 1 to ISO C90.
+
+   Another special wide character value is the equivalent to `EOF'.
+
+ - Macro: wint_t WEOF
+     The macro `WEOF' evaluates to a constant expression of type
+     `wint_t' whose value is different from any member of the extended
+     character set.
+
+     `WEOF' need not be the same value as `EOF' and unlike `EOF' it
+     also need *not* be negative.  I.e., sloppy code like
+
+          {
+            int c;
+            ...
+            while ((c = getc (fp)) < 0)
+              ...
+          }
+
+     has to be rewritten to explicitly use `WEOF' when wide characters
+     are used.
+
+          {
+            wint_t c;
+            ...
+            while ((c = wgetc (fp)) != WEOF)
+              ...
+          }
+
+     This macro was introduced in Amendment 1 to ISO C90 and is defined
+     in `wchar.h'.
+
+   These internal representations present problems when it comes to
+storing and transmittal, since a single wide character consists of more
+than one byte they are effected by byte-ordering.  I.e., machines with
+different endianesses would see different value accessing the same data.
+This also applies for communication protocols which are all byte-based
+and therefore the sender has to decide about splitting the wide
+character in bytes.  A last (but not least important) point is that wide
+characters often require more storage space than an customized byte
+oriented character set.
+
+   For all the above reasons, an external encoding which is different
+from the internal encoding is often used if the latter is UCS-2 or
+UCS-4.  The external encoding is byte-based and can be chosen
+appropriately for the environment and for the texts to be handled.
+There exist a variety of different character sets which can be used for
+this external encoding. Information which will not be exhaustively
+presented here-instead, a description of the major groups will suffice.
+All of the ASCII-based character sets [_bkoz_: do you mean Roman
+character sets? If not, what do you mean here?]  fulfill one
+requirement: they are "filesystem safe".  This means that the character
+`'/'' is used in the encoding *only* to represent itself.  Things are a
+bit different for character sets like EBCDIC (Extended Binary Coded
+Decimal Interchange Code, a character set family used by IBM) but if the
+operation system does not understand EBCDIC directly the parameters to
+system calls have to be converted first anyhow.
+
+   * The simplest character sets are single-byte character sets.  There
+     can be only up to 256 characters (for 8 bit character sets) which
+     is not sufficient to cover all languages but might be sufficient
+     to handle a specific text.  Another reason to choose this is
+     because of constraints from interaction with other programs (which
+     might not be 8-bit clean).
+
+   * The ISO 2022 standard defines a mechanism for extended character
+     sets where one character *can* be represented by more than one
+     byte.  This is achieved by associating a state with the text.
+     Embedded in the text can be characters which can be used to change
+     the state.  Each byte in the text might have a different
+     interpretation in each state.  The state might even influence
+     whether a given byte stands for a character on its own or whether
+     it has to be combined with some more bytes.
+
+     In most uses of ISO 2022 the defined character sets do not allow
+     state changes which cover more than the next character.  This has
+     the big advantage that whenever one can identify the beginning of
+     the byte sequence of a character one can interpret a text
+     correctly.  Examples of character sets using this policy are the
+     various EUC character sets (used by Sun's operations systems,
+     EUC-JP, EUC-KR, EUC-TW, and EUC-CN) or SJIS (Shift-JIS, a Japanese
+     encoding).
+
+     But there are also character sets using a state which is valid for
+     more than one character and has to be changed by another byte
+     sequence.  Examples for this are ISO-2022-JP, ISO-2022-KR, and
+     ISO-2022-CN.
+
+   * Early attempts to fix 8 bit character sets for other languages
+     using the Roman alphabet lead to character sets like ISO 6937.
+     Here bytes representing characters like the acute accent do not
+     produce output themselves: one has to combine them with other
+     characters to get the desired result.  E.g., the byte sequence
+     `0xc2 0x61' (non-spacing acute accent, following by lower-case
+     `a') to get the "small a with acute" character.  To get the acute
+     accent character on its own, one has to write `0xc2 0x20' (the
+     non-spacing acute followed by a space).
+
+     This type of character set is used in some embedded systems such as
+     teletex.
+
+   * Instead of converting the Unicode or ISO 10646 text used
+     internally, it is often also sufficient to simply use an encoding
+     different than UCS-2/UCS-4.  The Unicode and ISO 10646 standards
+     even specify such an encoding: UTF-8.  This encoding is able to
+     represent all of ISO 10464 31 bits in a byte string of length one
+     to six.
+
+     There were a few other attempts to encode ISO 10646 such as UTF-7
+     but UTF-8 is today the only encoding which should be used.  In
+     fact, UTF-8 will hopefully soon be the only external encoding that
+     has to be supported.  It proves to be universally usable and the
+     only disadvantage is that it favors Roman languages by making the
+     byte string representation of other scripts (Cyrillic, Greek,
+     Asian scripts) longer than necessary if using a specific character
+     set for these scripts.  Methods like the Unicode compression
+     scheme can alleviate these problems.
+
+   The question remaining is: how to select the character set or
+encoding to use.  The answer: you cannot decide about it yourself, it
+is decided by the developers of the system or the majority of the
+users.  Since the goal is interoperability one has to use whatever the
+other people one works with use.  If there are no constraints the
+selection is based on the requirements the expected circle of users
+will have.  I.e., if a project is expected to only be used in, say,
+Russia it is fine to use KOI8-R or a similar character set.  But if at
+the same time people from, say, Greece are participating one should use
+a character set which allows all people to collaborate.
+
+   The most widely useful solution seems to be: go with the most general
+character set, namely ISO 10646.  Use UTF-8 as the external encoding
+and problems about users not being able to use their own language
+adequately are a thing of the past.
+
+   One final comment about the choice of the wide character
+representation is necessary at this point.  We have said above that the
+natural choice is using Unicode or ISO 10646.  This is not required,
+but at least encouraged, by the ISO C standard.  The standard defines
+at least a macro `__STDC_ISO_10646__' that is only defined on systems
+where the `wchar_t' type encodes ISO 10646 characters.  If this symbol
+is not defined one should as much as possible avoid making assumption
+about the wide character representation.  If the programmer uses only
+the functions provided by the C library to handle wide character
+strings there should not be any compatibility problems with other
+systems.
+
+
+File: libc.info,  Node: Charset Function Overview,  Next: Restartable multibyte conversion,  Prev: Extended Char Intro,  Up: Character Set Handling
+
+Overview about Character Handling Functions
+===========================================
+
+   A Unix C library contains three different sets of functions in two
+families to handle character set conversion.  The one function family
+is specified in the ISO C standard and therefore is portable even
+beyond the Unix world.
+
+   The most commonly known set of functions, coming from the ISO C90
+standard, is unfortunately the least useful one.  In fact, these
+functions should be avoided whenever possible, especially when
+developing libraries (as opposed to applications).
+
+   The second family of functions got introduced in the early Unix
+standards (XPG2) and is still part of the latest and greatest Unix
+standard: Unix 98.  It is also the most powerful and useful set of
+functions.  But we will start with the functions defined in Amendment 1
+to ISO C90.
+
+
+File: libc.info,  Node: Restartable multibyte conversion,  Next: Non-reentrant Conversion,  Prev: Charset Function Overview,  Up: Character Set Handling
+
+Restartable Multibyte Conversion Functions
+==========================================
+
+   The ISO C standard defines functions to convert strings from a
+multibyte representation to wide character strings.  There are a number
+of peculiarities:
+
+   * The character set assumed for the multibyte encoding is not
+     specified as an argument to the functions.  Instead the character
+     set specified by the `LC_CTYPE' category of the current locale is
+     used; see *Note Locale Categories::.
+
+   * The functions handling more than one character at a time require
+     NUL terminated strings as the argument.  I.e., converting blocks
+     of text does not work unless one can add a NUL byte at an
+     appropriate place.  The GNU C library contains some extensions the
+     standard which allow specifying a size but basically they also
+     expect terminated strings.
+
+   Despite these limitations the ISO C functions can very well be used
+in many contexts.  In graphical user interfaces, for instance, it is not
+uncommon to have functions which require text to be displayed in a wide
+character string if it is not simple ASCII.  The text itself might come
+from a file with translations and the user should decide about the
+current locale which determines the translation and therefore also the
+external encoding used.  In such a situation (and many others) the
+functions described here are perfect.  If more freedom while performing
+the conversion is necessary take a look at the `iconv' functions (*note
+Generic Charset Conversion::.).
+
+* Menu:
+
+* Selecting the Conversion::     Selecting the conversion and its properties.
+* Keeping the state::            Representing the state of the conversion.
+* Converting a Character::       Converting Single Characters.
+* Converting Strings::           Converting Multibyte and Wide Character
+                                  Strings.
+* Multibyte Conversion Example:: A Complete Multibyte Conversion Example.
+
+
+File: libc.info,  Node: Selecting the Conversion,  Next: Keeping the state,  Up: Restartable multibyte conversion
+
+Selecting the conversion and its properties
+-------------------------------------------
+
+   We already said above that the currently selected locale for the
+`LC_CTYPE' category decides about the conversion which is performed by
+the functions we are about to describe.  Each locale uses its own
+character set (given as an argument to `localedef') and this is the one
+assumed as the external multibyte encoding.  The wide character
+character set always is UCS-4, at least on GNU systems.
+
+   A characteristic of each multibyte character set is the maximum
+number of bytes which can be necessary to represent one character.  This
+information is quite important when writing code which uses the
+conversion functions.  In the examples below we will see some examples.
+The ISO C standard defines two macros which provide this information.
+
+ - Macro: int MB_LEN_MAX
+     This macro specifies the maximum number of bytes in the multibyte
+     sequence for a single character in any of the supported locales.
+     It is a compile-time constant and it is defined in `limits.h'.
+
+ - Macro: int MB_CUR_MAX
+     `MB_CUR_MAX' expands into a positive integer expression that is the
+     maximum number of bytes in a multibyte character in the current
+     locale.  The value is never greater than `MB_LEN_MAX'.  Unlike
+     `MB_LEN_MAX' this macro need not be a compile-time constant and in
+     fact, in the GNU C library it is not.
+
+     `MB_CUR_MAX' is defined in `stdlib.h'.
+
+   Two different macros are necessary since strictly ISO C90 compilers
+do not allow variable length array definitions but still it is desirable
+to avoid dynamic allocation.  This incomplete piece of code shows the
+problem:
+
+     {
+       char buf[MB_LEN_MAX];
+       ssize_t len = 0;
+     
+       while (! feof (fp))
+         {
+           fread (&buf[len], 1, MB_CUR_MAX - len, fp);
+           /* ... process buf */
+           len -= used;
+         }
+     }
+
+   The code in the inner loop is expected to have always enough bytes in
+the array BUF to convert one multibyte character.  The array BUF has to
+be sized statically since many compilers do not allow a variable size.
+The `fread' call makes sure that always `MB_CUR_MAX' bytes are
+available in BUF.  Note that it isn't a problem if `MB_CUR_MAX' is not
+a compile-time constant.
+
+
+File: libc.info,  Node: Keeping the state,  Next: Converting a Character,  Prev: Selecting the Conversion,  Up: Restartable multibyte conversion
+
+Representing the state of the conversion
+----------------------------------------
+
+   In the introduction of this chapter it was said that certain
+character sets use a "stateful" encoding.  I.e., the encoded values
+depend in some way on the previous bytes in the text.
+
+   Since the conversion functions allow converting a text in more than
+one step we must have a way to pass this information from one call of
+the functions to another.
+
+ - Data type: mbstate_t
+     A variable of type `mbstate_t' can contain all the information
+     about the "shift state" needed from one call to a conversion
+     function to another.
+
+     This type is defined in `wchar.h'.  It got introduced in
+     Amendment 1 to ISO C90.
+
+   To use objects of this type the programmer has to define such objects
+(normally as local variables on the stack) and pass a pointer to the
+object to the conversion functions.  This way the conversion function
+can update the object if the current multibyte character set is
+stateful.
+
+   There is no specific function or initializer to put the state object
+in any specific state.  The rules are that the object should always
+represent the initial state before the first use and this is achieved by
+clearing the whole variable with code such as follows:
+
+     {
+       mbstate_t state;
+       memset (&state, '\0', sizeof (state));
+       /* from now on STATE can be used.  */
+       ...
+     }
+
+   When using the conversion functions to generate output it is often
+necessary to test whether the current state corresponds to the initial
+state.  This is necessary, for example, to decide whether or not to emit
+escape sequences to set the state to the initial state at certain
+sequence points.  Communication protocols often require this.
+
+ - Function: int mbsinit (const mbstate_t *PS)
+     This function determines whether the state object pointed to by PS
+     is in the initial state or not.  If PS is a null pointer or the
+     object is in the initial state the return value is nonzero.
+     Otherwise it is zero.
+
+     This function was introduced in Amendment 1 to ISO C90 and is
+     declared in `wchar.h'.
+
+   Code using this function often looks similar to this:
+
+     {
+       mbstate_t state;
+       memset (&state, '\0', sizeof (state));
+       /* Use STATE.  */
+       ...
+       if (! mbsinit (&state))
+         {
+           /* Emit code to return to initial state.  */
+           const wchar_t empty[] = L"";
+           const wchar_t *srcp = empty;
+           wcsrtombs (outbuf, &srcp, outbuflen, &state);
+         }
+       ...
+     }
+
+   The code to emit the escape sequence to get back to the initial
+state is interesting.  The `wcsrtombs' function can be used to
+determine the necessary output code (*note Converting Strings::.).
+Please note that on GNU systems it is not necessary to perform this
+extra action for the conversion from multibyte text to wide character
+text since the wide character encoding is not stateful.  But there is
+nothing mentioned in any standard which prohibits making `wchar_t'
+using a stateful encoding.
+

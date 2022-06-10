@@ -1,0 +1,5 @@
+\entry{enum mcheck{\_}status}{38}{\code {enum mcheck_status}}
+\entry{struct mallinfo}{42}{\code {struct mallinfo}}
+\entry{struct obstack}{48}{\code {struct obstack}}
+\entry{wctype{\_}t}{70}{\code {wctype_t}}
+\entry{wctrans{\_}t}{74}{\code {wctrans_t}}

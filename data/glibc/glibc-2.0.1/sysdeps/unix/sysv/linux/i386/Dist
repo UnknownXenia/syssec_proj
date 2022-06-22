@@ -1,2 +1,0 @@
-sys/perm.h sys/vm86.h
-clone.S

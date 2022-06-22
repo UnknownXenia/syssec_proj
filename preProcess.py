@@ -8,6 +8,8 @@ resultPath = "./repo_res"
 afterEliminationPath = "./repo_pre"
 DBPath = "./db"
 threshold = 30
+total_versions = 0
+total_project = 0
 
 
 def Read2Mem(path):
@@ -23,9 +25,13 @@ def Read2Mem(path):
 
 
 def redundancyElimination():
+    global total_versions
+    global total_project
     for repoName in os.listdir(resultPath):
         # repoName : 当前工程名字
+        total_project += 1
         print("[+] Start %s..." % repoName)
+        if repoName == ".DS_Store": continue
 
         versionList = []
         verDict = {}
@@ -37,7 +43,7 @@ def redundancyElimination():
             # eachVersion   : 完整的.csv文件名
             # versionNumber : 版本号
             print("  [*] Process Version : %s" % eachVersion)
-            versionNumber = eachVersion.split("-")[1].replace(".csv", "")
+            versionNumber = eachVersion.split("-")[-1].replace(".csv", "")
             if versionNumber == "" or versionNumber == " ":
                 continue
             versionList.append(versionNumber)
@@ -81,6 +87,7 @@ def redundancyElimination():
         for eachVersion in verDict:
             csv_writer.writerow([repoName + '-' + eachVersion, repoName + '_' + str(verDict[eachVersion])])
             versionCnt += 1
+        total_versions += versionCnt
         print("   [*] %d versions." % versionCnt)
         print("=========================================")
 
@@ -88,14 +95,18 @@ def redundancyElimination():
 def createDB():
     possibleMembers = {}
     lineCnt = 0
+    print("[+] The amount of versions are: %d" %total_versions)
+    print("[+] The amount of projects are: %d" %total_project)
     print("[+] Start Create Database.")
     for eachfile in os.listdir(afterEliminationPath):
         if eachfile[-8:] == "sion.csv": continue  # skip glibc_version.csv
+        if eachfile == ".DS_Store": continue 
         with open(afterEliminationPath + '/' + eachfile, 'r', encoding="UTF-8") as fs:
             csv_reader = csv.reader(fs)
-
+            print(eachfile)
             for eachrow in csv_reader:
                 hashval = eachrow[0]
+                if hashval == "TNULL": continue
                 flag = True
 
                 for hashdata in possibleMembers:
@@ -107,9 +118,7 @@ def createDB():
                         flag = False
                         break
                 if flag:
-                    lst = eachrow[1].replace('\"', "").replace(' ', "").replace("\'", "").replace("[", "").replace("]",
-                                                                                                                   "").split(
-                        ',')
+                    lst = eachrow[1].replace('\"', "").replace(' ', "").replace("\'", "").replace("[", "").replace("]","").split(',')
                     # print(f"        @@ lst is {lst}")
                     possibleMembers[hashval] = []
                     for i in lst:

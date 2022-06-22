@@ -7,6 +7,7 @@ import tlsh
 currentPath = os.getcwd()
 resultPath  = currentPath + "/repo_res/"
 dataPath = "./data"
+total_file = 0
 
 def compressFileBody(fileName):
     string = ""
@@ -29,6 +30,7 @@ def computeTlsh(string):
 	return hs
 
 def doHash(projName, projPath, projResPath):
+    global total_file
     csvFile = projResPath + '/' + projName + '.csv'
     print("   [*] Create a result file : %s.csv." % projName)
     fres = open(csvFile, 'w')
@@ -46,10 +48,12 @@ def doHash(projName, projPath, projResPath):
                 if(len(s) < 50):
                     continue
                 s = computeTlsh(s)
+                if s == "TNULL": continue
                 csv_writer.writerow([s, fileName])
                 fileCnt += 1
 
     print("   [*] result file write ends! %d lines written." % fileCnt)
+    total_file += fileCnt
     fres.close()
 
 def main():
@@ -71,6 +75,8 @@ def main():
                 os.makedirs(projResPath)
             print("[+] Start to process projects : %s." % versions)
             doHash(versions, projPath+'/'+versions, projResPath) 
+    
+    print("[+] The amount of files : %s." % total_file)
 
 if __name__ == "__main__":
     main()

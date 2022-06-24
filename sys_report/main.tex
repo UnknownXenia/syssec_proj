@@ -321,7 +321,12 @@ SourcererCC对minisql的克隆检测结果：
 
 对于第一条克隆对，Centris的检测结果：
 
-======此处yyy补充======
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\linewidth]{pics/centris_minisql.png}
+\end{figure}
+
+在这里检测结果与第一个算法有出入。有可能是在冗余消除的时候把35号工程与36号工程中相似文件给冗余消除了，也有可能是计算成hash的时候丢失了精度。
 
 SourcererCC对gnu的克隆检测检测结果（结果过多，截取其中一条详细分析）：
 
@@ -380,21 +385,43 @@ SourcererCC对gnu的克隆检测检测结果（结果过多，截取其中一条
    
 
 \subsubsection{ 不同大小的数据集}
-\subsubsubsection{ 很小数据集 minisql
-}
-   
+\subsubsubsection{ 很小数据集 minisql}
 
-\subsubsubsection{ 较小数据集 glibc}
+我们以76个minisql作为训练集，共有717个C/C++语言文件。进行版本消除后，写入704条作为数据库数据。整个建库时间大概只需要几秒钟。
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\linewidth]{pics/minisql_dbs.png}
+\end{figure}
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\linewidth]{pics/minisql_dbs2.png}
+\end{figure}
+
+将这个小数据集与测试集miniSQL-master比较（来自于github yusen），可以看到检索时间很快。在检索比较时间这个层面上，用hash比较的Centris算法要优于token流匹配的SourcererCC算法。
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\linewidth]{pics/centris_minisql.png}
+\end{figure}
    
 \subsubsubsection{大数据集 }
 
+我们选择的最大的数据集收集了gnu、clang、lua等大型C/C++语言的项目，共计26个项目，1032个版本，5w条数据左右。
 
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\linewidth]{pics/biggest_dbs.png}
+\end{figure}
 
+我们选取一个二进制工具库binutils-2.8.1作为测试集（数据库中收录了这个工具集除了这个版本的所有历史版本）。检测结果如下图所示，检测时间是0.6秒左右。
 
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\linewidth]{pics/biggest_test.png}
+\end{figure}
 
-
-
-
+总而言之，Centris算法在处理海量数据的检测上效果十分突出。不过这个算法的缺陷也十分明显：抽象成hash值导致文件特征度降低，误报率较高；文件少量的修改就会造成hash距离变大，不能被有效检测出来。
 
 
 % \begin{procedure}
